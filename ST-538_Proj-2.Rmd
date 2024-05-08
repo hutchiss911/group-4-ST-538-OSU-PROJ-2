@@ -1,0 +1,53 @@
+---
+title: "Data Wizards (Group 4) Project 1"
+author:
+- Di Chen
+- Mai Castellano
+- Tyler Kussee
+- Spencer (Hutchison) Yang
+output: pdf_document
+geometry: margin=0.7in
+---
+\vspace{-5truemm}
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
+##An if statement for checking if a package is installed 
+
+if (!require(tidycensus)) {
+  install.packages("tidycensus")
+}
+if (!require(tidyverse)) {
+  install.packages("tidyverse")
+}
+if (!require(dplyr)) {
+  install.packages("dplyr")
+}
+if (!require(ggplot2)) {
+  install.packages("ggplot2")
+}
+
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
+#Load libraries
+library(tidycensus)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+```
+
+## Introduction
+
+## Obtain/Scrub the data
+
+## Explore the data
+
+## Model the data
+
+## Interpret the data
+
+## Obstacles
+
+## Conclusion
+
+## Appendix
