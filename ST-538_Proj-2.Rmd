@@ -26,6 +26,33 @@ if (!require(ggplot2)) {
   install.packages("ggplot2")
 }
 
+# Reading in the csv
+train <- read.csv('train.csv')
+train <- train %>% select(-"DISBURSAL_DATE")
+train$DATE_OF_BIRTH <- as.Date(train$DATE_OF_BIRTH, format = "%d-%m-%Y")
+train$AGE <- as.Date('01-01-2019', format = "%d-%m-%Y") - train$DATE_OF_BIRTH
+train$AGE <- as.integer(floor(train$AGE / 365.25))
+train <- train %>% select(-"DATE_OF_BIRTH")
+# Calculate strange data fields
+train$acctyr <- as.numeric(gsub("yrs.*", "", train$AVERAGE_ACCT_AGE))
+train$acctmo <- as.numeric(gsub(".*yrs|mon", "", train$AVERAGE_ACCT_AGE))
+train$crdtyr <- as.numeric(gsub("yrs.*", "", train$CREDIT_HISTORY_LENGTH))
+train$crdtmo <- as.numeric(gsub(".*yrs|mon", "", train$CREDIT_HISTORY_LENGTH))
+# Replace strange data fields
+train$AVERAGE_ACCT_AGE <- round(train$acctyr + train$acctmo / 12, 2)
+train$CREDIT_HISTORY_LENGTH <- round(train$crdtyr + train$crdtmo / 12, 2)
+# Remove calc fields
+train <- train %>% select(-acctyr, -acctmo, -crdtyr, -crdtmo)
+# Create emloyment dummy fields
+train$SELF_EMPLOYED <- ifelse(train$EMPLOYMENT_TYPE == "Self employed", 1, 0)
+train$SALARIED <- ifelse(train$EMPLOYMENT_TYPE == "Salaried", 1, 0)
+train$NULL_EMPLOYMENT <- ifelse(is.na(train$EMPLOYMENT_TYPE), 1, 0)
+# Remove employment_type
+train <- train %>% select(-EMPLOYMENT_TYPE)
+# Pull CNS score letter grade
+train$PERFORM_CNS_SCORE_DESCRIPTION <- as.factor(substr(train$PERFORM_CNS_SCORE_DESCRIPTION,
+                                              1, 1))
+
 ```
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
