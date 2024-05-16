@@ -114,7 +114,7 @@ testLabels <- as.numeric(as.character(testData$LOAN_DEFAULT))
 ```
 
 ```{r}
-# XGBoost Classifier
+# XGBoost Classifier using the code from the file
 xgbModel <- xgboost(data = trainMatrix, label = trainLabels,
                      max.depth = 6, eta = 1, nrounds = 100,
                      objective = "binary:logistic", eval_metric = "logloss")
@@ -140,32 +140,6 @@ importanceMatrixES <- xgb.importance(model = xgbModelES)
 xgb.plot.importance(importanceMatrix)
 xgb.plot.importance(importanceMatrixES)
 ```
-
-
-```{r}
-# Fitted response labels
-pred1 <- predict(xgbModel, trainMatrix)
-predXGB1 <- ifelse(pred1 > 0.5, 1, 0)
-
-pred2 <- predict(xgbModelES, trainMatrix)
-predXGB2 <- ifelse(pred2 > 0.5, 1, 0)
-
-# Misclassification errors in the training data
-table(trainData$LOAN_DEFAULT, predXGB1)
-table(trainData$LOAN_DEFAULT, predXGB2)
-
-# Evaluate the model on the test set
-testPred1 <- predict(xgbModel, testMatrix)
-testPredXGB1 <- ifelse(testPred1 > 0.5, 1, 0)
-
-testPred2 <- predict(xgbModelES, testMatrix)
-testPredXGB2 <- ifelse(testPred2 > 0.5, 1, 0)
-
-# Misclassification errors in the test data
-table(testData$LOAN_DEFAULT, testPredXGB1)
-table(testData$LOAN_DEFAULT, testPredXGB2)
-```
-
 
 ## Explore the data
 
