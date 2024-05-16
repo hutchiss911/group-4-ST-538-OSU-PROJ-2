@@ -26,18 +26,53 @@ if (!require(ggplot2)) {
   install.packages("ggplot2")
 }
 
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
+#Load libraries
+library(tidycensus)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(caret)
+library(xgboost)
+library(DiagrammeR)
+```
+
+## Introduction
+
+In our pursuit of statistical inquiry, we have chosen to explore the Vehicle Loan Default dataset, comprising approximately 41 columns, with one designated as the response variable. Encompassing diverse information, the dataset delves into loan details, including date of birth, employment type, and credit score, alongside loan-related specifics such as disbursal details and loan-to-value ratios. The dataset presents challenges, notably in the form of odd date and time length columns, requiring standardization and transformation into comprehensible formats conducive to model development.
+
+We want to discover the most influential explanatory variables driving loan default, and their impact within the dataset. We also want to find the optimal modeling approach for harnessing the training data, evaluating various methodologies to identify the most effective. Ultimately, our investigation extends to which among them best identifies the underlying dynamics of vehicle loan default prediction.
+
+
+## Obtain/Scrub the data
+
+The data was pulled from the Vehicle Loan Default Prediction datasets available on Kaggle.As mentioned earlier, we have approximately 41 columns, with one of the columns designated as the response variable. First, we'll import the dataset from the training CSV:
+
+```{r}
 # Reading in the csv
 train <- read.csv('train.csv')
 train <- train %>% select(-"DISBURSAL_DATE")
 train$DATE_OF_BIRTH <- as.Date(train$DATE_OF_BIRTH, format = "%d-%m-%Y")
 train$AGE <- as.Date('01-01-2019', format = "%d-%m-%Y") - train$DATE_OF_BIRTH
 train$AGE <- as.integer(floor(train$AGE / 365.25))
-train <- train %>% select(-"DATE_OF_BIRTH")
+train <- train %>% select(-"DATE_OF_BIRTH", -"PERFORM_CNS_SCORE_DESCRIPTION")
+```
+
+We then scrub the unknown values in our length and age fields:
+
+```{r}
 # Calculate strange data fields
 train$acctyr <- as.numeric(gsub("yrs.*", "", train$AVERAGE_ACCT_AGE))
 train$acctmo <- as.numeric(gsub(".*yrs|mon", "", train$AVERAGE_ACCT_AGE))
 train$crdtyr <- as.numeric(gsub("yrs.*", "", train$CREDIT_HISTORY_LENGTH))
 train$crdtmo <- as.numeric(gsub(".*yrs|mon", "", train$CREDIT_HISTORY_LENGTH))
+```
+
+Then we do our calculations and create various other fields for our modeling usage:
+
+```{r}
 # Replace strange data fields
 train$AVERAGE_ACCT_AGE <- round(train$acctyr + train$acctmo / 12, 2)
 train$CREDIT_HISTORY_LENGTH <- round(train$crdtyr + train$crdtmo / 12, 2)
@@ -49,28 +84,88 @@ train$SALARIED <- ifelse(train$EMPLOYMENT_TYPE == "Salaried", 1, 0)
 train$NULL_EMPLOYMENT <- ifelse(is.na(train$EMPLOYMENT_TYPE), 1, 0)
 # Remove employment_type
 train <- train %>% select(-EMPLOYMENT_TYPE)
-# Pull CNS score letter grade
-train$PERFORM_CNS_SCORE_DESCRIPTION <- as.factor(substr(train$PERFORM_CNS_SCORE_DESCRIPTION,
-                                              1, 1))
+# Pull CNS score letter grade, removed to use XGBoost for now since it only takes integer/numbers
+#train$PERFORM_CNS_SCORE_DESCRIPTION <- as.factor(substr(train$PERFORM_CNS_SCORE_DESCRIPTION,
+#                                             1, 1))
+# converting Loan Default to a factor for binary classification
+tempTrain <- train
+tempTrain$LOAN_DEFAULT <- as.factor(train$LOAN_DEFAULT)
+```
+
+From here, we get started on splitting our dataset into a training and testing dataset. In this case, we'll be using the caret package to create an index for 90% of the data to be our training dataset, then do the split:
+
+```{r}
+set.seed(144556)
+trainIndexed <- createDataPartition(tempTrain$LOAN_DEFAULT, p = 0.9, list = FALSE)
+trainData <- train[trainIndexed, ]
+testData <- train[-trainIndexed, ]
+dim(trainData)
+dim(testData)
+```
+
+Now we can use XGBoost to go through our new training and test datasets to find our most influential variables. 
+
+```{r}
+trainMatrix <- as.matrix(trainData[, -which(names(trainData) == "LOAN_DEFAULT")])
+trainLabels <- as.numeric(as.character(trainData$LOAN_DEFAULT))
+
+testMatrix <- as.matrix(testData[, -which(names(testData) == "LOAN_DEFAULT")])
+testLabels <- as.numeric(as.character(testData$LOAN_DEFAULT))
+```
+
+```{r}
+# XGBoost Classifier
+xgbModel <- xgboost(data = trainMatrix, label = trainLabels,
+                     max.depth = 6, eta = 1, nrounds = 100,
+                     objective = "binary:logistic", eval_metric = "logloss")
+
+# Early Stopping using cross-validation
+xgbCV <- xgb.cv(data = trainMatrix, label = trainLabels,
+                 max.depth = 6, eta = 1, nrounds = 100,
+                 nfold = 5, early_stopping_rounds = 5,
+                 objective = "binary:logistic", eval_metric = "logloss")
+
+selectedRounds <- xgbCV$best_iteration
+
+xgbModelES <- xgboost(data = trainMatrix, label = trainLabels,
+                                max.depth = 6, eta = 1, nrounds = selectedRounds,
+                                objective = "binary:logistic", eval_metric = "logloss")
 
 ```
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
-#Load libraries
-library(tidycensus)
-library(tidyverse)
-library(dplyr)
-library(ggplot2)
+```{r}
+#let's show how important these variables are!
+importanceMatrix <- xgb.importance(model = xgbModel)
+importanceMatrixES <- xgb.importance(model = xgbModelES)
+xgb.plot.importance(importanceMatrix)
+xgb.plot.importance(importanceMatrixES)
 ```
 
-## Introduction
 
-In our pursuit of statistical inquiry, we have chosen to explore the Vehicle Loan Default dataset, comprising approximately 41 columns, with one designated as the response variable. Encompassing diverse information, the dataset delves into loanee details, including date of birth, employment type, and credit score, alongside loan-related specifics such as disbursal details and loan-to-value ratios. The dataset presents challenges, notably in the form of odd date and time length columns, requiring standardization and transformation into comprehensible formats conducive to model development.
+```{r}
+# Fitted response labels
+pred1 <- predict(xgbModel, trainMatrix)
+predXGB1 <- ifelse(pred1 > 0.5, 1, 0)
 
-We want to discover the most influential explanatory variables driving loan default, and their impact within the dataset. We also want to find the optimal modeling approach for harnessing the training data, evaluating various methodologies to identify the most effective. Ultimately, our investigation extends to which among them best identifies the underlying dynamics of vehicle loan default prediction.
+pred2 <- predict(xgbModelES, trainMatrix)
+predXGB2 <- ifelse(pred2 > 0.5, 1, 0)
 
+# Misclassification errors in the training data
+table(trainData$LOAN_DEFAULT, predXGB1)
+table(trainData$LOAN_DEFAULT, predXGB2)
 
-## Obtain/Scrub the data
+# Evaluate the model on the test set
+testPred1 <- predict(xgbModel, testMatrix)
+testPredXGB1 <- ifelse(testPred1 > 0.5, 1, 0)
+
+testPred2 <- predict(xgbModelES, testMatrix)
+testPredXGB2 <- ifelse(testPred2 > 0.5, 1, 0)
+
+# Misclassification errors in the test data
+table(testData$LOAN_DEFAULT, testPredXGB1)
+table(testData$LOAN_DEFAULT, testPredXGB2)
+```
+
 
 ## Explore the data
 
