@@ -26,14 +26,14 @@ if (!require(ggplot2)) {
   install.packages("ggplot2")
 }
 if (!require(caret)) {
-  install.packages("ggplot2")
+  install.packages("caret")
 }
 if (!require(xgboost)) {
-  install.packages("ggplot2")
+  install.packages("xgboost")
 }
-if (!require(DiagrammeR)) {
-  install.packages("ggplot2")
-}
+#if (!require(DiagrammeR)) {
+  #install.packages("htmltools")
+#}
 ```
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
@@ -44,7 +44,7 @@ library(dplyr)
 library(ggplot2)
 library(caret)
 library(xgboost)
-library(DiagrammeR)
+#library(DiagrammeR)
 ```
 
 ## Introduction
@@ -93,11 +93,20 @@ train$NULL_EMPLOYMENT <- ifelse(is.na(train$EMPLOYMENT_TYPE), 1, 0)
 train <- train %>% select(-EMPLOYMENT_TYPE)
 # Pull CNS score letter grade, removed to use XGBoost for now since it only takes integer/numbers
 #train$PERFORM_CNS_SCORE_DESCRIPTION <- as.factor(substr(train$PERFORM_CNS_SCORE_DESCRIPTION,
-#                                             1, 1))
+
+# Remove rows with any null values
+train <- train[complete.cases(train), ]
+
+# Remove duplicate rows
+train <- train[!duplicated(train), ]
+
 # converting Loan Default to a factor for binary classification
 tempTrain <- train
 tempTrain$LOAN_DEFAULT <- as.factor(train$LOAN_DEFAULT)
 ```
+
+
+
 
 Now that we've combed through our dataset, we can now going through our dataset to extract our features and learn the optimal model for classification.
 
@@ -116,6 +125,39 @@ Once the parameters and optimal number of rounds were found, we trained the mode
 * PRI_SANCTIONED_AMOUNT 
 * AGE                  
 * EMPLOYEE_CODE_ID 
+
+First, we want to check the correlations between different varibles.
+
+```{r}
+colnames(tempTrain)
+```
+```{r}
+# Convert all columns to numeric
+tempTrain[] <- lapply(tempTrain, as.numeric)
+
+# Check the structure of the 'train' dataset to verify numeric conversion
+str(tempTrain)
+```
+```{r}
+# Check for NaN or infinite values in the correlation matrix and replace with 0
+correlation_matrix <- cor(tempTrain)
+correlation_matrix <- as.matrix(correlation_matrix)
+correlation_matrix[is.nan(correlation_matrix) | is.infinite(correlation_matrix)] <- 0
+
+# Plot correlation matrix directly without clustering with variable labels
+image(1:nrow(correlation_matrix), 1:ncol(correlation_matrix), correlation_matrix,
+      main = "Correlation Matrix Heatmap",
+      xlab = "",
+      ylab = "",
+      col = colorRampPalette(c("blue", "white", "red"))(100),
+      axes = FALSE)
+
+# Add labels to the axes with smaller font size and remove numbers
+axis(1, at = 1:ncol(correlation_matrix), labels = colnames(correlation_matrix), las = 2, cex.axis = 0.5, tck = 0)
+axis(2, at = 1:nrow(correlation_matrix), labels = rownames(correlation_matrix), las = 2, cex.axis = 0.5, tck = 0)
+```
+
+
 
 With all of this in mind, we're able to now subset the training dataset with these important features, and split it into new training and testing datasets. we can start building our classifiers and getting results.
 ```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
@@ -183,6 +225,16 @@ testData <- filteredData[-trainIndex, ]
 
 ## Obstacles
 
+Initially, we allocated individual tasks to each team member and emphasized 
+focusing on their assigned responsibilities. However, we noticed variations 
+in the approach to problem-solving among team members. During collaboration on 
+this project using Git, conflicts arose when pushing changes to the main branch. 
+Subsequently, we reached an agreement stipulating that each team member must have 
+their changes reviewed and approved by the next person before merging them into 
+the main branch.
+
+
+
 ## Conclusion
 
 ## Appendix
@@ -226,7 +278,7 @@ xgbModel <- xgboost(
 # Select the top features
 importanceMatrix <- xgb.importance(model = xgbModel)
 topFeatures <- importanceMatrix$Feature[1:10]
-print(topFeatures)
+head(topFeatures)
 ```
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
