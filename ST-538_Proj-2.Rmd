@@ -72,6 +72,87 @@ We want to discover the most influential explanatory variables driving loan defa
 
 ## Obtain/Scrub the data
 
+```{r}
+head(train)
+```
+```{r}
+# Reduce independent variable won't have impact on dependent variable like ID etc
+train <- train |>
+  select (UNIQUEID, DISBURSED_AMOUNT, ASSET_COST, LTV, MOBILENO_AVL_FLAG, AADHAR_FLAG,
+          PAN_FLAG, VOTERID_FLAG, DRIVING_FLAG, PASSPORT_FLAG, PERFORM_CNS_SCORE,
+          PERFORM_CNS_SCORE_DESCRIPTION, PRI_NO_OF_ACCTS, PRI_ACTIVE_ACCTS, 
+          PRI_OVERDUE_ACCTS, PRI_CURRENT_BALANCE, PRI_SANCTIONED_AMOUNT, 
+          PRI_DISBURSED_AMOUNT, SEC_NO_OF_ACCTS, SEC_ACTIVE_ACCTS, 
+          SEC_OVERDUE_ACCTS, SEC_CURRENT_BALANCE, SEC_SANCTIONED_AMOUNT,
+          SEC_DISBURSED_AMOUNT,PRIMARY_INSTAL_AMT, SEC_INSTAL_AMT, 
+          NEW_ACCTS_IN_LAST_SIX_MONTHS, DELINQUENT_ACCTS_IN_LAST_SIX_MONTHS,
+          AVERAGE_ACCT_AGE, CREDIT_HISTORY_LENGTH, NO_OF_INQUIRIES, LOAN_DEFAULT,
+          AGE, SELF_EMPLOYED, SALARIED, NULL_EMPLOYMENT)
+head(train)
+```
+
+
+```{r}
+# Remove rows with any null values
+train <- train[complete.cases(train), ]
+
+# Remove duplicate rows
+train <- train[!duplicated(train), ]
+
+head(train)
+
+
+```
+```{r}
+
+independent_variables <- subset(train, select = c( "DISBURSED_AMOUNT", 
+"ASSET_COST", "LTV", "MOBILENO_AVL_FLAG", "AADHAR_FLAG", "PAN_FLAG", "DRIVING_FLAG", 
+"PASSPORT_FLAG", "PERFORM_CNS_SCORE", "PRI_NO_OF_ACCTS", "PRI_ACTIVE_ACCTS", 
+"PRI_CURRENT_BALANCE", "PRI_SANCTIONED_AMOUNT", "PRI_DISBURSED_AMOUNT", 
+"SEC_NO_OF_ACCTS", "SEC_ACTIVE_ACCTS", "SEC_OVERDUE_ACCTS", "SEC_CURRENT_BALANCE", 
+"SEC_SANCTIONED_AMOUNT", "SEC_DISBURSED_AMOUNT", "PRIMARY_INSTAL_AMT", 
+"SEC_INSTAL_AMT", "NEW_ACCTS_IN_LAST_SIX_MONTHS", "DELINQUENT_ACCTS_IN_LAST_SIX_MONTHS", 
+"AVERAGE_ACCT_AGE", "CREDIT_HISTORY_LENGTH", "NO_OF_INQUIRIES", "AGE", "SELF_EMPLOYED", 
+"SALARIED", "NULL_EMPLOYMENT", "LOAN_DEFAULT"))
+
+
+
+
+
+```
+
+
+```{r}
+# Convert all columns to numeric
+train[] <- lapply(train, as.numeric)
+
+# Check the structure of the 'train' dataset to verify numeric conversion
+str(train)
+
+```
+
+```{r}
+# Check for NaN or infinite values in the correlation matrix and replace with 0
+correlation_matrix[is.nan(correlation_matrix) | is.infinite(correlation_matrix)] <- 0
+
+# Plot correlation matrix directly without clustering with variable labels
+image(1:nrow(correlation_matrix), 1:ncol(correlation_matrix), correlation_matrix,
+      main = "Correlation Matrix Heatmap",
+      xlab = "",
+      ylab = "",
+      col = colorRampPalette(c("blue", "white", "red"))(100),
+      axes = FALSE)
+
+# Add labels to the axes with smaller font size and remove numbers
+axis(1, at = 1:ncol(correlation_matrix), labels = colnames(correlation_matrix), las = 2, cex.axis = 0.5, tck = 0)
+axis(2, at = 1:nrow(correlation_matrix), labels = rownames(correlation_matrix), las = 2, cex.axis = 0.5, tck = 0)
+
+
+```
+
+
+
+
 ## Explore the data
 
 ## Model the data
