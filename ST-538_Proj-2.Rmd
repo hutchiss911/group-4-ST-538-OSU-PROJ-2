@@ -25,7 +25,15 @@ if (!require(dplyr)) {
 if (!require(ggplot2)) {
   install.packages("ggplot2")
 }
-
+if (!require(caret)) {
+  install.packages("ggplot2")
+}
+if (!require(xgboost)) {
+  install.packages("ggplot2")
+}
+if (!require(DiagrammeR)) {
+  install.packages("ggplot2")
+}
 ```
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
@@ -45,12 +53,11 @@ In our pursuit of statistical inquiry, we have chosen to explore the Vehicle Loa
 
 We want to discover the most influential explanatory variables driving loan default, and their impact within the dataset. We also want to find the optimal modeling approach for harnessing the training data, evaluating various methodologies to identify the most effective. Ultimately, our investigation extends to which among them best identifies the underlying dynamics of vehicle loan default prediction.
 
-
 ## Obtain/Scrub the data
 
-The data was pulled from the Vehicle Loan Default Prediction datasets available on Kaggle.As mentioned earlier, we have approximately 41 columns, with one of the columns designated as the response variable. First, we'll import the dataset from the training CSV:
+The data was pulled from the Vehicle Loan Default Prediction datasets available on Kaggle. As mentioned earlier, we have approximately 41 columns, with one of the columns designated as the response variable. First, we'll import the dataset from the training CSV:
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
 # Reading in the csv
 train <- read.csv('train.csv')
 train <- train %>% select(-"DISBURSAL_DATE")
@@ -62,7 +69,7 @@ train <- train %>% select(-"DATE_OF_BIRTH", -"PERFORM_CNS_SCORE_DESCRIPTION")
 
 We then scrub the unknown values in our length and age fields:
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
 # Calculate strange data fields
 train$acctyr <- as.numeric(gsub("yrs.*", "", train$AVERAGE_ACCT_AGE))
 train$acctmo <- as.numeric(gsub(".*yrs|mon", "", train$AVERAGE_ACCT_AGE))
@@ -72,7 +79,7 @@ train$crdtmo <- as.numeric(gsub(".*yrs|mon", "", train$CREDIT_HISTORY_LENGTH))
 
 Then we do our calculations and create various other fields for our modeling usage:
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
 # Replace strange data fields
 train$AVERAGE_ACCT_AGE <- round(train$acctyr + train$acctmo / 12, 2)
 train$CREDIT_HISTORY_LENGTH <- round(train$crdtyr + train$crdtmo / 12, 2)
@@ -92,56 +99,83 @@ tempTrain <- train
 tempTrain$LOAN_DEFAULT <- as.factor(train$LOAN_DEFAULT)
 ```
 
-From here, we get started on splitting our dataset into a training and testing dataset. In this case, we'll be using the caret package to create an index for 90% of the data to be our training dataset, then do the split:
-
-```{r}
-set.seed(144556)
-trainIndexed <- createDataPartition(tempTrain$LOAN_DEFAULT, p = 0.9, list = FALSE)
-trainData <- train[trainIndexed, ]
-testData <- train[-trainIndexed, ]
-dim(trainData)
-dim(testData)
-```
-
-Now we can use XGBoost to go through our new training and test datasets to find our most influential variables. 
-
-```{r}
-trainMatrix <- as.matrix(trainData[, -which(names(trainData) == "LOAN_DEFAULT")])
-trainLabels <- as.numeric(as.character(trainData$LOAN_DEFAULT))
-
-testMatrix <- as.matrix(testData[, -which(names(testData) == "LOAN_DEFAULT")])
-testLabels <- as.numeric(as.character(testData$LOAN_DEFAULT))
-```
-
-```{r}
-# XGBoost Classifier using the code from the file
-xgbModel <- xgboost(data = trainMatrix, label = trainLabels,
-                     max.depth = 6, eta = 1, nrounds = 100,
-                     objective = "binary:logistic", eval_metric = "logloss")
-
-# Early Stopping using cross-validation
-xgbCV <- xgb.cv(data = trainMatrix, label = trainLabels,
-                 max.depth = 6, eta = 1, nrounds = 100,
-                 nfold = 5, early_stopping_rounds = 5,
-                 objective = "binary:logistic", eval_metric = "logloss")
-
-selectedRounds <- xgbCV$best_iteration
-
-xgbModelES <- xgboost(data = trainMatrix, label = trainLabels,
-                                max.depth = 6, eta = 1, nrounds = selectedRounds,
-                                objective = "binary:logistic", eval_metric = "logloss")
-
-```
-
-```{r}
-#let's show how important these variables are!
-importanceMatrix <- xgb.importance(model = xgbModel)
-importanceMatrixES <- xgb.importance(model = xgbModelES)
-xgb.plot.importance(importanceMatrix)
-xgb.plot.importance(importanceMatrixES)
-```
+Now that we've combed through our dataset, we can now going through our dataset to extract our features and learn the optimal model for classification.
 
 ## Explore the data
+
+So in the case of this dataset, we need to find the features that have the biggest impact on our "LOAN_DEFAULT" variable. In order to find this, we will be using the XGBoost machine learning algorithm package to train our matrix and label vector from the training data, setting the parameters, and performing cross-validation to find the optimal number of rounds for training the model.
+Once the parameters and optimal number of rounds were found, we trained the model and then proceeded to calculate the feature importance scores. From there, we select the top 10 features based on their importance to the model, along with plotting the scores to visualize the relative importance of each feature. With these scores and our graph, we found the following features to be the most important:
+
+* LTV                   
+* CURRENT_PINCODE_ID    
+* PERFORM_CNS_SCORE    
+* UNIQUEID              
+* DISBURSED_AMOUNT      
+* STATE_ID             
+* SUPPLIER_ID           
+* PRI_SANCTIONED_AMOUNT 
+* AGE                  
+* EMPLOYEE_CODE_ID 
+
+With all of this in mind, we're able to now subset the training dataset with these important features, and split it into new training and testing datasets. we can start building our classifiers and getting results.
+```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
+featureMatrix <- as.matrix(train[, -which(names(train) == "LOAN_DEFAULT")])
+labelVector <- as.numeric(as.character(train$LOAN_DEFAULT))
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
+# Set the parameters
+params <- list(
+  objective = "binary:logistic",
+  eval_metric = "logloss",
+  max_depth = 6,
+  eta = 0.1,
+  nthread = 2,
+  subsample = 0.8,
+  colsample_bytree = 0.8
+)
+
+# Cross-validation for rounds
+cvResults <- xgb.cv(
+  params = params,
+  data = featureMatrix,
+  label = labelVector,
+  nfold = 5,
+  nrounds = 100,
+  early_stopping_rounds = 10,
+  verbose = FALSE
+)
+
+# Train the XGBoost model
+xgbModel <- xgboost(
+  params = params,
+  data = featureMatrix,
+  label = labelVector,
+  nrounds = cvResults$best_iteration
+)
+
+# Select the top features
+importanceMatrix <- xgb.importance(model = xgbModel)
+topFeatures <- importanceMatrix$Feature[1:10]
+print(topFeatures)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
+#Modelling the features importance
+importanceMatrix <- xgb.importance(model = xgbModel)
+xgb.plot.importance(importanceMatrix)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
+# Subset the dataset with the selected features
+filteredData <- train[, c(topFeatures, "LOAN_DEFAULT")]
+
+# Training/Testing split
+trainIndex <- createDataPartition(filteredData$LOAN_DEFAULT, p = 0.8, list = FALSE)
+trainData <- filteredData[trainIndex, ]
+testData <- filteredData[-trainIndex, ]
+```
+
 
 ## Model the data
 
@@ -152,3 +186,61 @@ xgb.plot.importance(importanceMatrixES)
 ## Conclusion
 
 ## Appendix
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
+featureMatrix <- as.matrix(train[, -which(names(train) == "LOAN_DEFAULT")])
+labelVector <- as.numeric(as.character(train$LOAN_DEFAULT))
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
+# Set the parameters
+params <- list(
+  objective = "binary:logistic",
+  eval_metric = "logloss",
+  max_depth = 6,
+  eta = 0.1,
+  nthread = 2,
+  subsample = 0.8,
+  colsample_bytree = 0.8
+)
+
+# Cross-validation for rounds
+cvResults <- xgb.cv(
+  params = params,
+  data = featureMatrix,
+  label = labelVector,
+  nfold = 5,
+  nrounds = 100,
+  early_stopping_rounds = 10,
+  verbose = FALSE
+)
+
+# Train the XGBoost model
+xgbModel <- xgboost(
+  params = params,
+  data = featureMatrix,
+  label = labelVector,
+  nrounds = cvResults$best_iteration
+)
+
+# Select the top features
+importanceMatrix <- xgb.importance(model = xgbModel)
+topFeatures <- importanceMatrix$Feature[1:10]
+print(topFeatures)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
+#Modelling the features importance
+importanceMatrix <- xgb.importance(model = xgbModel)
+xgb.plot.importance(importanceMatrix)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
+# Subset the dataset with the selected features
+filteredData <- train[, c(topFeatures, "LOAN_DEFAULT")]
+
+# Split the selected data into training and testing sets
+trainIndex <- createDataPartition(filteredData$LOAN_DEFAULT, p = 0.8, list = FALSE)
+trainData <- filteredData[trainIndex, ]
+testData <- filteredData[-trainIndex, ]
+```
