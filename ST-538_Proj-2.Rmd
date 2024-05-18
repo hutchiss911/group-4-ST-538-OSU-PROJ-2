@@ -228,7 +228,7 @@ head(trainData)
 We want to take a look the logistic regression model first and check the model accuracy.
 
 ```{r}
-
+#Fit the Logistic regression
 logistic_model <- glm(LOAN_DEFAULT ~ ., data = trainData, family = binomial)
 
 ```
@@ -249,6 +249,63 @@ print(paste("Precision:", precision))
 print(paste("Recall:", recall))
 
 ```
+
+Fit XGboost model
+
+```{r}
+# XGBoost Classifier
+set.seed(1)
+n <- dim(filteredData)[1]
+train_indices <- sample(1:n, size = round(0.8 * n))  # 80% for training
+test_indices <- setdiff(1:n, train_indices)  # Remaining 20% for testing
+
+train.data <- as.matrix(filteredData[train_indices, 2:3])
+train.labels <- as.numeric(filteredData$LOAN_DEFAULT[train_indices])
+
+test.data <- as.matrix(filteredData[test_indices, 2:3])
+test.labels <- as.numeric(filteredData$LOAN_DEFAULT[test_indices])
+
+str(train.data)
+str(test.data)
+
+xgb.loan = xgboost(data = train.data, label = train.labels, 
+                  max.depth = 6, eta = 1, nrounds = 100,
+                  objective = "binary:logistic", eval_metric = "logloss")
+
+# Early Stopping using cross-validation
+xgb.loan.cv = xgb.cv(data = train.data, label = train.labels, 
+                    max.depth = 6, eta = 1, nrounds = 100,
+                    nfold = 5, early_stopping_rounds = 5,
+                    objective = "binary:logistic", eval_metric = "logloss")
+
+sel_rounds = xgb.loan.cv$best_iteration
+
+xgb.loan2 = xgboost(data = train.data, label = train.labels, 
+                  max.depth = 6, eta = 1, nrounds = sel_rounds,
+                  objective = "binary:logistic", eval_metric = "logloss")
+
+# Fitted response labels
+pred1 = predict(xgb.loan, train.data)
+pred.xgb.loan = ifelse(pred1 > 0.5, 2, 1)
+
+pred2 = predict(xgb.loan2, train.data)
+pred.xgb.loan2 = ifelse(pred2 > 0.5, 2, 1)
+
+# Plotting the first two trees in the boosted classifier
+xgb.plot.tree(model = xgb.loan, trees = 1:2)
+
+# Misclassification errors in the training data
+train_conf_matrix1 <- table(filteredData$LOAN_DEFAULT[train_indices], pred.xgb.loan)
+train_conf_matrix2 <- table(filteredData$LOAN_DEFAULT[train_indices], pred.xgb.loan2)
+
+#Accuracy
+train_accuracy1 <- (train_conf_matrix1[1,1] + train_conf_matrix1[2,2]) / sum(train_conf_matrix1)
+train_accuracy2 <- (train_conf_matrix2[1,1] + train_conf_matrix2[2,2]) / sum(train_conf_matrix2)
+
+train_accuracy1
+train_accuracy2
+```
+
 ```{r}
 library(e1071)
 ```
