@@ -126,7 +126,7 @@ Once the parameters and optimal number of rounds were found, we trained the mode
 * AGE                  
 * EMPLOYEE_CODE_ID 
 
-First, we want to check the correlations between different varibles.
+First, we want to check the correlations between different variables.
 
 ```{r}
 colnames(tempTrain)
@@ -220,6 +220,43 @@ testData <- filteredData[-trainIndex, ]
 
 
 ## Model the data
+
+```{r}
+head(trainData)
+```
+
+We want to take a look the logistic regression model first and check the model accuracy.
+
+```{r}
+
+logistic_model <- glm(LOAN_DEFAULT ~ ., data = trainData, family = binomial)
+
+```
+
+```{r}
+# Predictions
+y_pred <- predict(logistic_model, newdata = testData, type = "response")
+y_pred_class <- ifelse(y_pred > 0.5, 1, 0)
+
+# Model evaluation
+accuracy <- mean(y_pred_class == testData$LOAN_DEFAULT)
+confusion_matrix <- table(testData$LOAN_DEFAULT, y_pred_class)
+precision <- confusion_matrix[2,2] / sum(confusion_matrix[,2])
+recall <- confusion_matrix[2,2] / sum(confusion_matrix[2,])
+
+print(paste("Accuracy:", accuracy))
+print(paste("Precision:", precision))
+print(paste("Recall:", recall))
+
+```
+```{r}
+library(e1071)
+```
+
+
+
+
+
 
 ## Interpret the data
 
