@@ -248,26 +248,35 @@ confusion_matrix <- table(test.data$LOAN_DEFAULT, y_pred_class)
 
 # Print accuracy and confusion matrix
 print(paste("Accuracy:", accuracy))
-print(confusion_matrix)
+confusion_matrix
 
 # Adjust the threshold to see if it improves the balance
 threshold <- 0.4 # try different values 0.4
 y_pred_class_adjusted <- ifelse(y_pred > threshold, 1, 0)
 confusion_matrix_adjusted <- table(test.data$LOAN_DEFAULT, y_pred_class_adjusted, dnn = c("Actual", "Predicted"))
 
-print(paste("Adjusted Accuracy:", mean(y_pred_class_adjusted == test.data$LOAN_DEFAULT)))
-print(confusion_matrix_adjusted)
+Adjusted_Accuracy <- mean(y_pred_class_adjusted == test.data$LOAN_DEFAULT)
+confusion_matrix_adjusted
 
 precision <- confusion_matrix_adjusted[2,2] / sum(confusion_matrix_adjusted[,2])
 recall <- confusion_matrix_adjusted[2,2] / sum(confusion_matrix_adjusted[2,])
 
-print(paste("Adjusted Accuracy:", accuracy))
-print(paste("Precision:", precision))
-print(paste("Recall:", recall))
+Adjusted_Accuracy
+precision
+recall
 
+print(paste("Adjusted_Accuracy:", Adjusted_Accuracy))
+print(paste("precision:", precision))
+print(paste("recall:", recall))
 ```
 
-Fit XGboost model
+
+The dataset was split into training and test sets, with the features and labels extracted and converted into matrices suitable for XGBoost. Specifically, the first 10 features were used for training and testing the model.
+
+Two XGBoost models were trained:
+
+Initial Model was trained with a maximum depth of 6, learning rate (eta) of 1, and 100 boosting rounds. The objective function was set to binary:logistic, and the evaluation metric used was logloss. Early stopping was implemented in Cross-Validated Model using 5-fold cross-validation to determine the optimal number of boosting rounds. The early stopping criterion was set to 5 rounds. The best iteration from the cross-validation was used to train the final model.
+
 
 ```{r}
 # XGBoost Classifier
@@ -324,11 +333,14 @@ library(e1071)
 ```
 
 
-
-
-
-
 ## Interpret the data
+
+Predictions were made on the training data using both models. The predictions were converted to binary class labels with a threshold of 0.5. The following evaluation metrics were computed:
+
+Confusion Matrix: The confusion matrices for both models were generated to analyze the classification performance.
+Accuracy: The accuracy of both models on the training data was calculated and resulted in 80.76% and 78.25% on the initial model and Cross-Validated model, respectively.
+
+Overall, XGBoost proved to be a robust choice for this classification task, and the use of early stopping through cross-validation further enhanced the model's reliability. The next step should include evaluation on the test set to validate the model's performance on unseen data and potentially fine-tune hyperparameters for further improvements.
 
 ## Obstacles
 
