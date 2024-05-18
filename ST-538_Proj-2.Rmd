@@ -213,9 +213,13 @@ xgb.plot.importance(importanceMatrix)
 filteredData <- train[, c(topFeatures, "LOAN_DEFAULT")]
 
 # Training/Testing split
-trainIndex <- createDataPartition(filteredData$LOAN_DEFAULT, p = 0.8, list = FALSE)
-trainData <- filteredData[trainIndex, ]
-testData <- filteredData[-trainIndex, ]
+set.seed(1)
+n <- dim(filteredData)[1]
+train_indices <- sample(1:n, size = round(0.8 * n))  # 80% for training
+test_indices <- setdiff(1:n, train_indices)  # Remaining 20% for testing
+
+train.data <- (filteredData[train_indices, 1:11])
+test.data <- (filteredData[test_indices, 1:11])
 ```
 
 
@@ -229,22 +233,35 @@ We want to take a look the logistic regression model first and check the model a
 
 ```{r}
 #Fit the Logistic regression
-logistic_model <- glm(LOAN_DEFAULT ~ ., data = trainData, family = binomial)
+logistic_model <- glm(LOAN_DEFAULT ~ ., data = train.data, family = binomial)
 
 ```
 
 ```{r}
 # Predictions
-y_pred <- predict(logistic_model, newdata = testData, type = "response")
+y_pred <- predict(logistic_model, newdata = test.data, type = "response")
 y_pred_class <- ifelse(y_pred > 0.5, 1, 0)
 
 # Model evaluation
-accuracy <- mean(y_pred_class == testData$LOAN_DEFAULT)
-confusion_matrix <- table(testData$LOAN_DEFAULT, y_pred_class)
-precision <- confusion_matrix[2,2] / sum(confusion_matrix[,2])
-recall <- confusion_matrix[2,2] / sum(confusion_matrix[2,])
+accuracy <- mean(y_pred_class == test.data$LOAN_DEFAULT)
+confusion_matrix <- table(test.data$LOAN_DEFAULT, y_pred_class)
 
+# Print accuracy and confusion matrix
 print(paste("Accuracy:", accuracy))
+print(confusion_matrix)
+
+# Adjust the threshold to see if it improves the balance
+threshold <- 0.4 # try different values 0.4
+y_pred_class_adjusted <- ifelse(y_pred > threshold, 1, 0)
+confusion_matrix_adjusted <- table(test.data$LOAN_DEFAULT, y_pred_class_adjusted, dnn = c("Actual", "Predicted"))
+
+print(paste("Adjusted Accuracy:", mean(y_pred_class_adjusted == test.data$LOAN_DEFAULT)))
+print(confusion_matrix_adjusted)
+
+precision <- confusion_matrix_adjusted[2,2] / sum(confusion_matrix_adjusted[,2])
+recall <- confusion_matrix_adjusted[2,2] / sum(confusion_matrix_adjusted[2,])
+
+print(paste("Adjusted Accuracy:", accuracy))
 print(paste("Precision:", precision))
 print(paste("Recall:", recall))
 
@@ -254,15 +271,11 @@ Fit XGboost model
 
 ```{r}
 # XGBoost Classifier
-set.seed(1)
-n <- dim(filteredData)[1]
-train_indices <- sample(1:n, size = round(0.8 * n))  # 80% for training
-test_indices <- setdiff(1:n, train_indices)  # Remaining 20% for testing
 
-train.data <- as.matrix(filteredData[train_indices, 2:3])
+train.data <- as.matrix(train.data[ , 1:10])
 train.labels <- as.numeric(filteredData$LOAN_DEFAULT[train_indices])
 
-test.data <- as.matrix(filteredData[test_indices, 2:3])
+test.data <- as.matrix(test.data[ , 1:10])
 test.labels <- as.numeric(filteredData$LOAN_DEFAULT[test_indices])
 
 str(train.data)
