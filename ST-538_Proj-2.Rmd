@@ -297,10 +297,10 @@ test.data <- as.matrix(test.data[ , 1:10])
 #str(test.data)
 
 #Finding optimal eta with logloss in mind
-etaTester <- seq(0.01, 0.9, by = 0.02)
+etaTester <- seq(1, 0.01, by = -0.01)
 logLossVal <- numeric(length(etaTester))
 
-#iterating through model to see which one works the best.
+#iterating through model to see which one works the best. REAL SLOW ON HARDWARE
 for(i in seq_along(etaTester)) {
   xgb.loan <- xgboost(
     data = train.data, label = train.labels,
@@ -309,7 +309,7 @@ for(i in seq_along(etaTester)) {
     verbose = 0
   )
   
-  logLossVal[i] <- xgb.loan$evaluation_log$train_logloss[100]
+  logLossVal[i] <- xgb.loan$evaluation_log$train_logloss[i]
 }
 
 bestIndex <- which.min(logLossVal)
