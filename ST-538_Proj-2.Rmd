@@ -90,8 +90,8 @@ train <- train %>% select(-acctyr, -acctmo, -crdtyr, -crdtmo)
 train$SELF_EMPLOYED <- ifelse(train$EMPLOYMENT_TYPE == "Self employed", 1, 0)
 train$SALARIED <- ifelse(train$EMPLOYMENT_TYPE == "Salaried", 1, 0)
 train$NULL_EMPLOYMENT <- ifelse(is.na(train$EMPLOYMENT_TYPE), 1, 0)
-# Remove employment_type
-train <- train %>% select(-EMPLOYMENT_TYPE)
+# Remove employment_type & Unique ID
+train <- train %>% select(-EMPLOYMENT_TYPE, -UNIQUEID)
 # Pull CNS score letter grade, removed to use XGBoost for now since it only takes integer/numbers
 #train$PERFORM_CNS_SCORE_DESCRIPTION <- as.factor(substr(train$PERFORM_CNS_SCORE_DESCRIPTION,
 
@@ -210,7 +210,7 @@ ggplot(importance_data, aes(x = reorder(Feature, Importance), y = Importance)) +
 * LTV                   
 * CURRENT_PINCODE_ID    
 * PERFORM_CNS_SCORE    
-* UNIQUEID              
+* CTV              
 * DISBURSED_AMOUNT      
 * STATE_ID             
 * SUPPLIER_ID           
@@ -287,25 +287,50 @@ The initial logistic regression model had an accuracy of 78.15% but showed signi
 
 Subsequently, two XGBoost models were trained. The initial model used a maximum depth of 6, a learning rate (eta) of 1, and 100 boosting rounds, with the binary:logistic objective and logloss evaluation metric. Cross-validation with early stopping (5 rounds) was applied to determine the optimal number of boosting rounds, which was then used to train the final model.
 
-
-```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
-# XGBoost Classifier
-
-#Matrix for explanatoty variable
+```{r}
+#Matrix for explanatory variable
 train.data <- as.matrix(train.data[ , 1:10])
 test.data <- as.matrix(test.data[ , 1:10])
 
 
-str(train.data)
-str(test.data)
+#str(train.data)
+#str(test.data)
 
+#Finding optimal eta with logloss in mind
+etaTester <- seq(0.01, 0.9, by = 0.02)
+logLossVal <- numeric(length(etaTester))
+
+#iterating through model to see which one works the best.
+for(i in seq_along(etaTester)) {
+  xgb.loan <- xgboost(
+    data = train.data, label = train.labels,
+    max.depth = 6, eta = etaTester, nround = 100,
+    objective = "binary:logistic", eval_metric = "logloss",
+    verbose = 0
+  )
+  
+  logLossVal[i] <- xgb.loan$evaluation_log$train_logloss[100]
+}
+
+bestIndex <- which.min(logLossVal)
+bestEta <- etaTester[bestIndex]
+bestLL <- logLossVal[bestIndex]
+
+cat("Optimal eta: ", bestEta, "\n")
+cat("Best logLoss: ", bestLL, "\n")
+```
+
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
+# XGBoost Classifier
 xgb.loan = xgboost(data = train.data, label = train.labels, 
-                  max.depth = 6, eta = 1, nrounds = 100,
+                  max.depth = 6, eta = 0.01, nrounds = 100,
                   objective = "binary:logistic", eval_metric = "logloss")
 
 # Early Stopping using cross-validation
 xgb.loan.cv = xgb.cv(data = train.data, label = train.labels, 
-                    max.depth = 6, eta = 1, nrounds = 100,
+                    max.depth = 6, eta = 0.01, nrounds = 100,
                     nfold = 5, early_stopping_rounds = 5,
                     objective = "binary:logistic", eval_metric = "logloss")
 
