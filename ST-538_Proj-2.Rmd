@@ -183,7 +183,7 @@ importanceMatrix <- xgb.importance(model = xgbModel)
 
 In order to find the features that have the biggest impact, we will be using the XGBoost machine learning algorithm package to train our matrix and label vector from the training data, setting the parameters, and performing cross-validation to find the optimal number of rounds for training the model.
 
-Once the parameters and optimal number of rounds were found, we trained the model and then proceeded to calculate the feature importance scores. From there, we select the top 10 features based on their importance to the model, along with plotting the scores to visualize the relative importance of each feature.
+Once the parameters and optimal number of rounds were found, we trained the model and then proceeded to calculate the feature importance scores.
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
 #Modelling the features importance
@@ -205,6 +205,7 @@ ggplot(importance_data, aes(x = reorder(Feature, Importance), y = Importance)) +
   coord_flip()
 ```
 
+Each bar in the plot represents a feature from the dataset used in the machine learning model. The length of each bar corresponds to the importance of the feature, with longer bars indicating more important features. The features are sorted in descending order of importance, with the most important features appearing at the top. The importance score, displayed on the x-axis, quantifies the contribution of each feature to the model's predictions. Higher scores indicate greater importance, thus allowing us to identify which features have the most significant impact on the model’s performance.
 
 ```{r}
 #Extract log loss vector from Cross validation result
@@ -225,26 +226,11 @@ ggplot(logLossData, aes(x = NumFeatures, y = LogLoss)) +
   theme_bw()
 
 #It appears that the optimal model should include 15 variables  
-best_variables <- feature_importance$Feature[1:15]
-best_variables
-
 topFeatures <- importanceMatrix$Feature[1:15]
 print(topFeatures)
 ```
 
- According to the feature importance scores and our graph, we found the following features to be the most important:
-
-* LTV                   
-* CURRENT_PINCODE_ID    
-* PERFORM_CNS_SCORE    
-* CTV              
-* DISBURSED_AMOUNT      
-* STATE_ID             
-* SUPPLIER_ID           
-* PRI_SANCTIONED_AMOUNT 
-* AGE                  
-* EMPLOYEE_CODE_ID 
-
+The optimal number of features for a machine learning model was determined by analyzing log loss metrics obtained from cross-validation. Based on the plot, it was observed that the optimal model should include 15 variables, which represents a balance between complexity and log loss minimization. These features, identified through the importance scores from the XGBoost model are, LTV, CURRENT_PINCODE_ID, PERFORM_CNS_SCORE, DISBURSED_AMOUNT, STATE_ID, ASSET_COST, SUPPLIER_ID, PRI_SANCTIONED_AMOUNT, EMPLOYEE_CODE_ID, BRANCH_ID, CREDIT_HISTORY_LENGTH, AGE, NO_OF_INQUIRIES, PRI_OVERDUE_ACCTS, and PRIMARY_INSTAL_AMT. 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
 # Subset the dataset with the selected features
@@ -266,7 +252,7 @@ test.labels <- as.numeric(filteredData$LOAN_DEFAULT[test_indices])
 
 ## Building classifiers and results
 
-The dataset, containing 10 explanatory variables as identified above and 1 response variable, was divided into training and testing sets, with an 80-20 split. A logistic regression model was then trained on the training data. Initial predictions on the training data were classified using a threshold of 0.5, and subsequent accuracy and confusion matrices were computed. To achieve a better balance, the threshold was adjusted to 0.4. Adjusted predictions were made accordingly, and the new accuracy, precision, and recall were calculated.
+The dataset, containing 15 explanatory variables as identified and 1 response variable, was divided into training and testing sets, with an 80-20 split. A logistic regression model was then trained on the training data. The confusion matrix was created and accuracy was calculated. The logistic regression model on the training data correctly predicted the outcome approximately 78.26% of the time when using a threshold of 0.5. However, with only 37.88% in precision and 0.34% in recall, further improvement is needed for the training model.
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
 #Verify for accuracy
@@ -294,35 +280,15 @@ train_confusion_matrix <- table(train.labels, y_pred_class_train, dnn = c("Actua
 print(paste("Train Accuracy:", train_accuracy))
 train_confusion_matrix
 
-# Adjust the threshold to see if it improves the balance
-threshold <- 0.4
-y_pred_class_train_adjusted <- ifelse(y_pred_train > threshold, 1, 0)
-train_confusion_matrix_adjusted <- table(train.labels, y_pred_class_train_adjusted, dnn = c("Actual", "Predicted"))
+precision <- train_confusion_matrix[2, 2] / sum(train_confusion_matrix[, 2])
+recall <- train_confusion_matrix[2, 2] / sum(train_confusion_matrix[2, ])
 
-adjusted_train_accuracy <- mean(y_pred_class_train_adjusted == train.labels)
-precision <- train_confusion_matrix_adjusted[2, 2] / sum(train_confusion_matrix_adjusted[, 2])
-recall <- train_confusion_matrix_adjusted[2, 2] / sum(train_confusion_matrix_adjusted[2, ])
-
-# Print adjusted accuracy, precision, and recall for train data
-print(paste("Adjusted Train Accuracy:", adjusted_train_accuracy))
-train_confusion_matrix_adjusted
+# Print precision, and recall for train data
 print(paste("Precision:", precision))
 print(paste("Recall:", recall))
 ```
 
-The initial logistic regression model had an accuracy of 78.15% but showed significant class imbalance, predicting nearly all instances as the majority class (class 0). Adjusting the threshold to 0.4 slightly reduced accuracy but improved the detection of the minority class (class 1). Despite this, recall remained very low at 0.19%, indicating poor detection of minority class instances. Precision improved to 37.26%, meaning the model correctly predicted the minority class 37.26% of the time, but still missed most actual minority instances.
-
-Subsequently, two XGBoost models were trained. The initial model used a maximum depth of 6, a learning rate (eta) of 1, and 100 boosting rounds, with the binary:logistic objective and logloss evaluation metric. Cross-validation with early stopping (5 rounds) was applied to determine the optimal number of boosting rounds, which was then used to train the final model.
-
 ```{r}
-#Matrix for explanatory variable
-train.data <- as.matrix(train.data[ , 1:15])
-test.data <- as.matrix(test.data[ , 1:15])
-
-
-#str(train.data)
-#str(test.data)
-
 #Finding optimal eta with logloss in mind
 etaTester <- seq(1, 0.01, by = -0.01)
 logLossVal <- numeric(length(etaTester))
@@ -345,11 +311,31 @@ bestLL <- logLossVal[bestIndex]
 
 cat("Optimal eta: ", bestEta, "\n")
 cat("Best logLoss: ", bestLL, "\n")
+
+#Create a data frame with log loss and eta
+eta <- data.frame(
+  eta = etaTester,
+  LogLoss = logLossVal)
+
+#Plot log loss by number of features
+ggplot(eta, aes(x = eta, y = LogLoss)) +
+  geom_line() +
+  geom_point() +
+  xlab("eta tester") +
+  ylab("Log Loss") +
+  ggtitle("Log Loss by eta values") +
+  theme_bw()
 ```
+To ensures that the model's learning rate is finely tuned to achieve the best possible performance in terms of minimizing log loss, a sequence of a learning rate eta values from 1 to 0.01 was tested. An XGBoost model was trained for each eta value using 100 boosting rounds and a maximum depth of 6. The log loss for each model was recorded. The eta value that resulted in the lowest log loss is 0.01.
 
-
+Subsequently, two XGBoost models were trained. The initial model used a maximum depth of 6, an eta of 0.01, and 100 boosting rounds, with the binary:logistic objective and logloss evaluation metric. Cross-validation with early stopping (5 rounds) was employed to determine the optimal number of boosting rounds. The cross-validation with early stopping approach confirmed that using 100 boosting rounds is appropriate for the initial model configuration.
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
+#Matrix for explanatory variable
+train.data <- as.matrix(train.data[ , 1:15])
+test.data <- as.matrix(test.data[ , 1:15])
+
+
 # XGBoost Classifier
 xgb.loan = xgboost(data = train.data, label = train.labels, 
                   max.depth = 6, eta = 0.01, nrounds = 100,
@@ -362,41 +348,28 @@ xgb.loan.cv = xgb.cv(data = train.data, label = train.labels,
                     objective = "binary:logistic", eval_metric = "logloss")
 
 sel_rounds = xgb.loan.cv$best_iteration
+sel_rounds
 
-xgb.loan2 = xgboost(data = train.data, label = train.labels, 
-                  max.depth = 6, eta = 1, nrounds = sel_rounds,
-                  objective = "binary:logistic", eval_metric = "logloss")
+#nrounds = 100 is appropriate according to the cross-validation method, furthur training is not needed
 
 # Fitted response labels
-pred1 = predict(xgb.loan, train.data)
-pred.xgb.loan = ifelse(pred1 > 0.5, 2, 1)
-
-pred2 = predict(xgb.loan2, train.data)
-pred.xgb.loan2 = ifelse(pred2 > 0.5, 2, 1)
+pred = predict(xgb.loan, train.data)
+pred.xgb.loan = ifelse(pred > 0.5, 1, 0)
 
 # Plotting the first two trees in the boosted classifier
 xgb.plot.tree(model = xgb.loan, trees = 1:2)
 
 # Misclassification errors in the training data
-train_conf_matrix1 <- table(filteredData$LOAN_DEFAULT[train_indices], pred.xgb.loan)
-train_conf_matrix2 <- table(filteredData$LOAN_DEFAULT[train_indices], pred.xgb.loan2)
+train_conf_matrix <- table(filteredData$LOAN_DEFAULT[train_indices], pred.xgb.loan)
 
 #Accuracy
-train_accuracy1 <- (train_conf_matrix1[1,1] + train_conf_matrix1[2,2]) / sum(train_conf_matrix1)
-precision1 <- train_conf_matrix1[2, 2] / sum(train_conf_matrix1[, 2])
-recall1 <- train_conf_matrix1[2, 2] / sum(train_conf_matrix1[2, ])
+train_accuracy <- (train_conf_matrix[1,1] + train_conf_matrix[2,2]) / sum(train_conf_matrix)
+precision <- train_conf_matrix[2, 2] / sum(train_conf_matrix[, 2])
+recall <- train_conf_matrix[2, 2] / sum(train_conf_matrix[2, ])
 
-train_accuracy1
-precision1
-recall1
-
-train_accuracy2 <- (train_conf_matrix2[1,1] + train_conf_matrix2[2,2]) / sum(train_conf_matrix2)
-precision2 <- train_conf_matrix2[2, 2] / sum(train_conf_matrix2[, 2])
-recall2 <- train_conf_matrix2[2, 2] / sum(train_conf_matrix2[2, ])
-
-train_accuracy2
-precision2
-recall2
+train_accuracy
+precision
+recall
 ```
 
 
