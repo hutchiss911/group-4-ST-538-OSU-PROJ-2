@@ -439,16 +439,32 @@ trainIndices <- sample(trainValIndices, size = round(0.8 * length(trainValIndice
 valIndices <- setdiff(trainValIndices, trainIndices)  #  20% - validation
 
 train2.data <- (filteredData[trainIndices, 1:16])
-val2.data <- (filteredData[valIndices, 1:16])
-test2.data <- (filteredData[testIndices, 1:16])
+val.data <- (filteredData[valIndices, 1:16])
 
 train2.labels <- as.numeric(filteredData$LOAN_DEFAULT[trainIndices])
-val2.labels <- as.numeric(filteredData$LOAN_DEFAULT[valIndices])
-test2.labels <- as.numeric(filteredData$LOAN_DEFAULT[testIndices])
+val.labels <- as.numeric(filteredData$LOAN_DEFAULT[valIndices])
 ```
 
 ```{r}
+##training classifier
+train2.data <- as.matrix(train.data[ , 0:15])
+val.data <- as.matrix(val.data[ , 0:15])
 
+# XGBoost Classifier
+xgb.loan <- xgboost(
+  data = train2.data, label = train.labels,
+  max.depth = 6, eta = 0.01, nrounds = 100, #using the same eta from last time for now.
+  objective = "binary:logistic", eval_metric = "logloss",
+  verbose = 0
+)
+
+#predictions
+predTrain2 <- predict(xgb.loan, train.data)
+predTrainClass2 <- ifelse(predTrain2 > 0.5, 1, 0)
+
+#Evaluate the performance
+trainAccuracy3 <- mean(predTrainClass2 == train2.labels)
+cat("Current Accuracy (mean): ", trainAccuracy3)
 ```
 
 
