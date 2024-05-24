@@ -34,9 +34,10 @@ if (!require(xgboost)) {
 #if (!require(DiagrammeR)) {
   #install.packages("htmltools")
 #}
+knitr::opts_chunk$set(echo=F, error=T, collapse=T, warning=F, results='hide', message=F)
 ```
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
+```{r, results='hide'}
 #Load libraries
 library(tidycensus)
 library(tidyverse)
@@ -55,7 +56,7 @@ We want to discover the most influential explanatory variables driving loan defa
 
 The data was pulled from the Vehicle Loan Default Prediction datasets available on Kaggle. As mentioned earlier, we have approximately 41 columns, with one of the columns designated as the response variable. 
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
+```{r}
 #First, we'll import the dataset from the training CSV:
 # Reading in the csv
 train <- read.csv('train.csv')
@@ -68,7 +69,7 @@ train <- train %>% select(-"DATE_OF_BIRTH", -"PERFORM_CNS_SCORE_DESCRIPTION")
 
 
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
+```{r}
 #We then scrub the unknown values in our length and age fields:
 # Calculate strange data fields
 train$acctyr <- as.numeric(gsub("yrs.*", "", train$AVERAGE_ACCT_AGE))
@@ -79,7 +80,7 @@ train$crdtmo <- as.numeric(gsub(".*yrs|mon", "", train$CREDIT_HISTORY_LENGTH))
 
 
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
+```{r}
 #Then we do our calculations and create various other fields for our modeling usage:
 # Replace strange data fields
 train$AVERAGE_ACCT_AGE <- round(train$acctyr + train$acctmo / 12, 2)
@@ -113,19 +114,19 @@ In the case of this dataset, we need to find the features that have the biggest 
 
 First, we want to check the correlations between different variables.
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='show', fig.width=5, fig.height=4, fig.align='center'}
-colnames(tempTrain)
 
+
+```{r, warning=F, fig.align='center', fig.height=4}
 # Convert all columns to numeric
 tempTrain[] <- lapply(tempTrain, as.numeric)
-
-# Check the structure of the 'train' dataset to verify numeric conversion
-str(tempTrain)
 
 # Check for NaN or infinite values in the correlation matrix and replace with 0
 correlation_matrix <- cor(tempTrain)
 correlation_matrix <- as.matrix(correlation_matrix)
 correlation_matrix[is.nan(correlation_matrix) | is.infinite(correlation_matrix)] <- 0
+
+# Define the plot margins to accommodate all text labels
+par(mar = c(5, 5, 4, 2) + 0.1)
 
 # Plot correlation matrix directly without clustering with variable labels
 image(1:nrow(correlation_matrix), 1:ncol(correlation_matrix), correlation_matrix,
@@ -138,15 +139,37 @@ image(1:nrow(correlation_matrix), 1:ncol(correlation_matrix), correlation_matrix
 # Add labels to the axes with smaller font size and remove numbers
 axis(1, at = 1:ncol(correlation_matrix), labels = colnames(correlation_matrix), las = 2, cex.axis = 0.5, tck = 0)
 axis(2, at = 1:nrow(correlation_matrix), labels = rownames(correlation_matrix), las = 2, cex.axis = 0.5, tck = 0)
+
+# Add correlation values as text for highly correlated pairs
+for(i in 1:nrow(correlation_matrix)) {
+  for(j in 1:ncol(correlation_matrix)) {
+    if (!is.na(correlation_matrix[i, j]) && i != j && abs(correlation_matrix[i, j]) > 0.6) {
+      text(j, i, labels = round(correlation_matrix[i, j], 2), cex = 0.5)
+    }
+  }
+}
+
+
 ```
 
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
+From the correlation matrix, we observe that darker shades of red signify robust 
+positive correlations, while deeper shades of blue denote strong negative correlations.
+
+The size and intensity of the squares within the heatmap correspond to the 
+magnitude of the correlation coefficients between variables. Notably, variables 
+such as PRI.DISBURSED.AMOUNT, LTV, SEC.NO.OF.ACCTS, SEC.ACTIVE.ACCTS, 
+PRI.CURRENT.BALANCE, and AVERAGE.ACCT.AGE exhibit notable correlations with other 
+independent variables. However, to derive conclusive insights, further in-depth 
+analysis and interpretation are warranted.
+
+
+```{r}
 featureMatrix <- as.matrix(train[, -which(names(train) == "LOAN_DEFAULT")])
 labelVector <- as.numeric(as.character(train$LOAN_DEFAULT))
 ```
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
+```{r}
 # Set the parameters
 params <- list(
   objective = "binary:logistic",
@@ -185,16 +208,19 @@ In order to find the features that have the biggest impact, we will be using the
 
 Once the parameters and optimal number of rounds were found, we trained the model and then proceeded to calculate the feature importance scores.
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
+```{r, fig.show='hide'}
 #Modelling the features importance
 importanceMatrix <- xgb.importance(model = xgbModel)
 xgb.plot.importance(importanceMatrix)
 ```
 
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='show', fig.align='center'}
+```{r, fig.align='center', fig.height=5}
 # Sort the data by importance in descending order
 importance_data <- importanceMatrix[order(importanceMatrix$Importance, decreasing = TRUE), ]
+
+importance_data <- importance_data %>% 
+  slice_head(n = 15)
 
 # Create the bar plot
 ggplot(importance_data, aes(x = reorder(Feature, Importance), y = Importance)) +
@@ -226,18 +252,20 @@ ggplot(logLossData, aes(x = NumFeatures, y = LogLoss)) +
   theme_bw()
 
 #It appears that the optimal model should include 15 variables  
+
 topFeatures <- importanceMatrix$Feature[1:15]
-print(topFeatures)
 ```
+
 
 The optimal number of features for a machine learning model was determined by analyzing log loss metrics obtained from cross-validation. Based on the plot, it was observed that the optimal model should include 15 variables, which represents a balance between complexity and log loss minimization. These features, identified through the importance scores from the XGBoost model are, LTV, CURRENT_PINCODE_ID, PERFORM_CNS_SCORE, DISBURSED_AMOUNT, STATE_ID, ASSET_COST, SUPPLIER_ID, PRI_SANCTIONED_AMOUNT, EMPLOYEE_CODE_ID, BRANCH_ID, CREDIT_HISTORY_LENGTH, AGE, NO_OF_INQUIRIES, PRI_OVERDUE_ACCTS, and PRIMARY_INSTAL_AMT. 
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
+
+```{r}
 # Subset the dataset with the selected features
 filteredData <- train[, c(topFeatures, "LOAN_DEFAULT")]
 
 # Training/Testing split
-set.seed(1)
+set.seed(123)
 n <- dim(filteredData)[1]
 train_indices <- sample(1:n, size = round(0.8 * n))  # 80% for training
 test_indices <- setdiff(1:n, train_indices)  # Remaining 20% for testing
@@ -254,20 +282,20 @@ test.labels <- as.numeric(filteredData$LOAN_DEFAULT[test_indices])
 
 The dataset, containing 15 explanatory variables as identified and 1 response variable, was divided into training and testing sets, with an 80-20 split. A logistic regression model was then trained on the training data. The confusion matrix was created and accuracy was calculated. The logistic regression model on the training data correctly predicted the outcome approximately 78.26% of the time when using a threshold of 0.5. However, with only 37.88% in precision and 0.34% in recall, further improvement is needed for the training model.
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
+```{r}
 #Verify for accuracy
 head(train.data)
 ```
 
 
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
+```{r, warning=F}
 #Fit the Logistic regression on train data
 logistic_model <- glm(LOAN_DEFAULT ~ ., data = train.data, family = binomial)
 ```
 
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
+```{r}
 # Predictions on train data
 y_pred_train <- predict(logistic_model, newdata = train.data, type = "response")
 y_pred_class_train <- ifelse(y_pred_train > 0.5, 1, 0)
@@ -330,22 +358,24 @@ To ensures that the model's learning rate is finely tuned to achieve the best po
 
 Subsequently, two XGBoost models were trained. The initial model used a maximum depth of 6, an eta of 0.01, and 100 boosting rounds, with the binary:logistic objective and logloss evaluation metric. Cross-validation with early stopping (5 rounds) was employed to determine the optimal number of boosting rounds. The cross-validation with early stopping approach confirmed that using 100 boosting rounds is appropriate for the initial model configuration.
 
+
 ```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
 #Matrix for explanatory variable
 train.data <- as.matrix(train.data[ , 1:15])
 test.data <- as.matrix(test.data[ , 1:15])
 
-
 # XGBoost Classifier
 xgb.loan = xgboost(data = train.data, label = train.labels, 
                   max.depth = 6, eta = 0.01, nrounds = 100,
-                  objective = "binary:logistic", eval_metric = "logloss")
+                  objective = "binary:logistic", eval_metric = "logloss",
+                  verbose = 0)
 
 # Early Stopping using cross-validation
 xgb.loan.cv = xgb.cv(data = train.data, label = train.labels, 
                     max.depth = 6, eta = 0.01, nrounds = 100,
                     nfold = 5, early_stopping_rounds = 5,
-                    objective = "binary:logistic", eval_metric = "logloss")
+                    objective = "binary:logistic", eval_metric = "logloss",
+                    verbose = 0)
 
 sel_rounds = xgb.loan.cv$best_iteration
 sel_rounds
@@ -372,13 +402,50 @@ precision
 recall
 ```
 
-
 Predictions were made on the training data with a threshold of 0.5. The accuracy of both models on the training data was calculated, resulting in 80.76% and 78.25%, respectively. The first model appears to have a better balance between precision of 69.5% and recall of 21.24%. However, a recall of 21.24% is relatively low. The next steps should include exploring further optimization to improve the model's performance. These optimization include adjusting the decision threshold, tuning the maximum depth of the trees, adjusting the learning rate, and creating learning curve plot.
+
+### Training and Validation Split
+```{r}
+#training and Validation split
+set.seed(4566)
+n <- dim(filteredData)[1]
+trainValInd <- sample(1:n, size = round(0.8 * n))
+testIndices <- setdiff(1:n, trainValInd)
+
+# Split the train_val_indices into training and validation sets
+trainIndices <- sample(trainValInd, size = round(0.8 * length(trainValInd)))  # 80% - Training
+valIndices <- setdiff(trainValInd, trainIndices)  # 20% - validation
+
+train2.data <- (filteredData[trainIndices, 1:16])
+val.data <- (filteredData[valIndices, 1:16])
+
+train2.labels <- as.numeric(filteredData$LOAN_DEFAULT[trainIndices])
+val.labels <- as.numeric(filteredData$LOAN_DEFAULT[valIndices])
+```
+
+### Build Classifier and Verification
+```{r}
+train2.data <- as.matrix(train.data[ , 1:15])
+val.data <- as.matrix(val.data[ , 1:15])
+
+xgb.loan3 <- xgboost(
+  data = train2.data, label = train.labels,
+  max.depth = 6, eta = 0.01, nrounds = 100, #left this as eta = 0.01 from the last time.
+  objective = "binary:logistic", eval_metric = "logloss",
+  verbose = 0
+)
+
+trainPredict2 <- predict(xgb.loan3, train2.data)
+trainPredictClass2 <- ifelse(trainPredict2 > 0.5, 1, 0)
+
+trainAccuracy2 <- mean(trainPredictClass2 == train2.labels)
+cat("Training Accuracy on new classifier: ", trainAccuracy2)
+```
 
 
 ## Appendix
 
-```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
+```{r, echo=T, eval=F}
 ##An if statement for checking if a package is installed 
 
 if (!require(tidycensus)) {
