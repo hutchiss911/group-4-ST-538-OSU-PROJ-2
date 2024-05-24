@@ -198,10 +198,8 @@ xgbModel <- xgboost(
   nrounds = cvResults$best_iteration
 )
 
-# Select the top features
+#Rank features
 importanceMatrix <- xgb.importance(model = xgbModel)
-topFeatures <- importanceMatrix$Feature[1:10]
-print(topFeatures)
 ```
 
 In order to find the features that have the biggest impact, we will be using the XGBoost machine learning algorithm package to train our matrix and label vector from the training data, setting the parameters, and performing cross-validation to find the optimal number of rounds for training the model.
@@ -213,6 +211,8 @@ Once the parameters and optimal number of rounds were found, we trained the mode
 importanceMatrix <- xgb.importance(model = xgbModel)
 xgb.plot.importance(importanceMatrix)
 ```
+
+
 ```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='show', fig.align='center'}
 # Sort the data by importance in descending order
 importance_data <- importanceMatrix[order(importanceMatrix$Importance, decreasing = TRUE), ]
@@ -225,6 +225,7 @@ ggplot(importance_data, aes(x = reorder(Feature, Importance), y = Importance)) +
   theme(axis.text.y = element_text(size = 8), axis.title.x=element_blank(), axis.title.y=element_blank()) +  
   coord_flip()
 ```
+
 
 ```{r}
 #Extract log loss vector from Cross validation result
@@ -247,6 +248,9 @@ ggplot(logLossData, aes(x = NumFeatures, y = LogLoss)) +
 #It appears that the optimal model should include 15 variables  
 best_variables <- feature_importance$Feature[1:15]
 best_variables
+
+topFeatures <- importanceMatrix$Feature[1:15]
+print(topFeatures)
 ```
 
  According to the feature importance scores and our graph, we found the following features to be the most important:
@@ -273,8 +277,8 @@ n <- dim(filteredData)[1]
 train_indices <- sample(1:n, size = round(0.8 * n))  # 80% for training
 test_indices <- setdiff(1:n, train_indices)  # Remaining 20% for testing
 
-train.data <- (filteredData[train_indices, 1:11])
-test.data <- (filteredData[test_indices, 1:11])
+train.data <- (filteredData[train_indices, 1:16])
+test.data <- (filteredData[test_indices, 1:16])
 
 train.labels <- as.numeric(filteredData$LOAN_DEFAULT[train_indices])
 test.labels <- as.numeric(filteredData$LOAN_DEFAULT[test_indices])
@@ -333,8 +337,8 @@ Subsequently, two XGBoost models were trained. The initial model used a maximum 
 
 ```{r}
 #Matrix for explanatory variable
-train.data <- as.matrix(train.data[ , 1:10])
-test.data <- as.matrix(test.data[ , 1:10])
+train.data <- as.matrix(train.data[ , 1:15])
+test.data <- as.matrix(test.data[ , 1:15])
 
 
 #str(train.data)
