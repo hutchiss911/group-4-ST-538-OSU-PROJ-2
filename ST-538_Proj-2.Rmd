@@ -246,7 +246,7 @@ ggplot(logLossData, aes(x = NumFeatures, y = LogLoss)) +
   theme_bw()
 
 #It appears that the optimal model should include 15 variables  
-best_variables <- feature_importance$Feature[1:15]
+best_variables <- importanceMatrix$Feature[1:15] #changed to importanceMatrix for now
 best_variables
 
 topFeatures <- importanceMatrix$Feature[1:15]
@@ -258,14 +258,18 @@ print(topFeatures)
 * LTV                   
 * CURRENT_PINCODE_ID    
 * PERFORM_CNS_SCORE    
-* CTV              
 * DISBURSED_AMOUNT      
-* STATE_ID             
-* SUPPLIER_ID           
+* STATE_ID              
+* SUPPLIER_ID          
 * PRI_SANCTIONED_AMOUNT 
-* AGE                  
-* EMPLOYEE_CODE_ID 
-
+* BRANCH_ID             
+* EMPLOYEE_CODE_ID     
+* CREDIT_HISTORY_LENGTH 
+* AGE                   
+* ASSET_COST           
+* PRI_OVERDUE_ACCTS     
+* NO_OF_INQUIRIES       
+* PRIMARY_INSTAL_AMT   
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
 # Subset the dataset with the selected features
@@ -335,7 +339,7 @@ The initial logistic regression model had an accuracy of 78.15% but showed signi
 
 Subsequently, two XGBoost models were trained. The initial model used a maximum depth of 6, a learning rate (eta) of 1, and 100 boosting rounds, with the binary:logistic objective and logloss evaluation metric. Cross-validation with early stopping (5 rounds) was applied to determine the optimal number of boosting rounds, which was then used to train the final model.
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
 #Matrix for explanatory variable
 train.data <- as.matrix(train.data[ , 1:15])
 test.data <- as.matrix(test.data[ , 1:15])
@@ -422,6 +426,31 @@ recall2
 
 
 Predictions were made on the training data with a threshold of 0.5. The accuracy of both models on the training data was calculated, resulting in 80.76% and 78.25%, respectively. The first model appears to have a better balance between precision of 69.5% and recall of 21.24%. However, a recall of 21.24% is relatively low. The next steps should include exploring further optimization to improve the model's performance. These optimization include adjusting the decision threshold, tuning the maximum depth of the trees, adjusting the learning rate, and creating learning curve plot.
+
+### Further split of training and validation dataset
+```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
+set.seed(1243)
+n <- dim(filteredData)[1]
+trainValIndices <- sample(1:n, size = round(0.8 * n))
+testIndices <- setdiff(1:n, trainValIndices)  
+
+#splitting the training dataset into a new training and validation set
+trainIndices <- sample(trainValIndices, size = round(0.8 * length(trainValIndices)))  # 80% - training
+valIndices <- setdiff(trainValIndices, trainIndices)  #  20% - validation
+
+train2.data <- (filteredData[trainIndices, 1:16])
+val2.data <- (filteredData[valIndices, 1:16])
+test2.data <- (filteredData[testIndices, 1:16])
+
+train2.labels <- as.numeric(filteredData$LOAN_DEFAULT[trainIndices])
+val2.labels <- as.numeric(filteredData$LOAN_DEFAULT[valIndices])
+test2.labels <- as.numeric(filteredData$LOAN_DEFAULT[testIndices])
+```
+
+```{r}
+
+```
+
 
 
 ## Appendix
