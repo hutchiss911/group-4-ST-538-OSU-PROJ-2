@@ -153,16 +153,9 @@ for(i in 1:nrow(correlation_matrix)) {
 ```
 
 
-From the correlation matrix, we observe that darker shades of red signify robust 
-positive correlations, while deeper shades of blue denote strong negative correlations.
+From the correlation matrix, we observe that darker shades of red signify robust positive correlations, while deeper shades of blue denote strong negative correlations.
 
-The size and intensity of the squares within the heatmap correspond to the 
-magnitude of the correlation coefficients between variables. Notably, variables 
-such as PRI.DISBURSED.AMOUNT, LTV, SEC.NO.OF.ACCTS, SEC.ACTIVE.ACCTS, 
-PRI.CURRENT.BALANCE, and AVERAGE.ACCT.AGE exhibit notable correlations with other 
-independent variables. However, to derive conclusive insights, further in-depth 
-analysis and interpretation are warranted.
-
+The size and intensity of the squares within the heatmap correspond to the magnitude of the correlation coefficients between variables. Notably, variables such as PRI.DISBURSED.AMOUNT, LTV, SEC.NO.OF.ACCTS, SEC.ACTIVE.ACCTS, PRI.CURRENT.BALANCE, and AVERAGE.ACCT.AGE exhibit notable correlations with other independent variables. However, to derive conclusive insights, further in-depth analysis and interpretation are warranted.
 
 ```{r}
 featureMatrix <- as.matrix(train[, -which(names(train) == "LOAN_DEFAULT")])
@@ -252,10 +245,11 @@ ggplot(logLossData, aes(x = NumFeatures, y = LogLoss)) +
   theme_bw()
 
 #It appears that the optimal model should include 15 variables  
+# best_variables <- feature_importance$Feature[1:15]
+# best_variables
 
 topFeatures <- importanceMatrix$Feature[1:15]
 ```
-
 
 The optimal number of features for a machine learning model was determined by analyzing log loss metrics obtained from cross-validation. Based on the plot, it was observed that the optimal model should include 15 variables, which represents a balance between complexity and log loss minimization. These features, identified through the importance scores from the XGBoost model are, LTV, CURRENT_PINCODE_ID, PERFORM_CNS_SCORE, DISBURSED_AMOUNT, STATE_ID, ASSET_COST, SUPPLIER_ID, PRI_SANCTIONED_AMOUNT, EMPLOYEE_CODE_ID, BRANCH_ID, CREDIT_HISTORY_LENGTH, AGE, NO_OF_INQUIRIES, PRI_OVERDUE_ACCTS, and PRIMARY_INSTAL_AMT. 
 
@@ -305,16 +299,18 @@ train_accuracy <- mean(y_pred_class_train == train.labels)
 train_confusion_matrix <- table(train.labels, y_pred_class_train, dnn = c("Actual", "Predicted"))
 
 # Print accuracy and confusion matrix for train data
-print(paste("Train Accuracy:", train_accuracy))
-train_confusion_matrix
 
+train_confusion_matrix
 precision <- train_confusion_matrix[2, 2] / sum(train_confusion_matrix[, 2])
 recall <- train_confusion_matrix[2, 2] / sum(train_confusion_matrix[2, ])
 
-# Print precision, and recall for train data
+# Print adjusted accuracy, precision, and recall for train data
+print(paste("Train Accuracy:", train_accuracy))
 print(paste("Precision:", precision))
 print(paste("Recall:", recall))
 ```
+
+
 
 ```{r}
 #Finding optimal eta with logloss in mind
@@ -354,24 +350,24 @@ ggplot(eta, aes(x = eta, y = LogLoss)) +
   ggtitle("Log Loss by eta values") +
   theme_bw()
 ```
+
 To ensures that the model's learning rate is finely tuned to achieve the best possible performance in terms of minimizing log loss, a sequence of a learning rate eta values from 1 to 0.01 was tested. An XGBoost model was trained for each eta value using 100 boosting rounds and a maximum depth of 6. The log loss for each model was recorded. The eta value that resulted in the lowest log loss is 0.01.
 
 Subsequently, two XGBoost models were trained. The initial model used a maximum depth of 6, an eta of 0.01, and 100 boosting rounds, with the binary:logistic objective and logloss evaluation metric. Cross-validation with early stopping (5 rounds) was employed to determine the optimal number of boosting rounds. The cross-validation with early stopping approach confirmed that using 100 boosting rounds is appropriate for the initial model configuration.
 
-
-```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
+```{r}
 #Matrix for explanatory variable
-train.data <- as.matrix(train.data[ , 1:15])
-test.data <- as.matrix(test.data[ , 1:15])
+train.matrix <- as.matrix(train.data[ , 1:15])
+test.matrix <- as.matrix(test.data[ , 1:15])
 
 # XGBoost Classifier
-xgb.loan = xgboost(data = train.data, label = train.labels, 
+xgb.loan = xgboost(data = train.matrix, label = train.labels, 
                   max.depth = 6, eta = 0.01, nrounds = 100,
                   objective = "binary:logistic", eval_metric = "logloss",
                   verbose = 0)
 
 # Early Stopping using cross-validation
-xgb.loan.cv = xgb.cv(data = train.data, label = train.labels, 
+xgb.loan.cv = xgb.cv(data = train.matrix, label = train.labels, 
                     max.depth = 6, eta = 0.01, nrounds = 100,
                     nfold = 5, early_stopping_rounds = 5,
                     objective = "binary:logistic", eval_metric = "logloss",
@@ -379,12 +375,11 @@ xgb.loan.cv = xgb.cv(data = train.data, label = train.labels,
 
 sel_rounds = xgb.loan.cv$best_iteration
 sel_rounds
-
 #nrounds = 100 is appropriate according to the cross-validation method, furthur training is not needed
 
 # Fitted response labels
-pred = predict(xgb.loan, train.data)
-pred.xgb.loan = ifelse(pred > 0.5, 1, 0)
+pred1 = predict(xgb.loan, train.matrix)
+pred.xgb.loan = ifelse(pred1 > 0.5, 1, 0)
 
 # Plotting the first two trees in the boosted classifier
 xgb.plot.tree(model = xgb.loan, trees = 1:2)
@@ -400,48 +395,117 @@ recall <- train_conf_matrix[2, 2] / sum(train_conf_matrix[2, ])
 train_accuracy
 precision
 recall
+
+# Try different threshold
+pred.xgb.loan = ifelse(pred1 > 0.4, 1, 0)
+
+# Misclassification errors in the training data
+train_conf_matrix_1 <- table(filteredData$LOAN_DEFAULT[train_indices], pred.xgb.loan)
+
+#Accuracy
+train_accuracy_1 <- (train_conf_matrix_1[1,1] + train_conf_matrix_1[2,2]) / sum(train_conf_matrix_1)
+precision_1 <- train_conf_matrix_1[2, 2] / sum(train_conf_matrix_1[, 2])
+recall_1 <- train_conf_matrix_1[2, 2] / sum(train_conf_matrix_1[2, ])
+
+train_accuracy_1
+precision_1
+recall_1
+
+# Try different threshold
+pred.xgb.loan = ifelse(pred1 > 0.6, 1, 0)
+
+# Misclassification errors in the training data
+train_conf_matrix_2 <- table(filteredData$LOAN_DEFAULT[train_indices], pred.xgb.loan)
+train_conf_matrix_2
+#the model did not predict any instances as belonging to class 1 when threashold is 0.6
 ```
 
-Predictions were made on the training data with a threshold of 0.5. The accuracy of both models on the training data was calculated, resulting in 80.76% and 78.25%, respectively. The first model appears to have a better balance between precision of 69.5% and recall of 21.24%. However, a recall of 21.24% is relatively low. The next steps should include exploring further optimization to improve the model's performance. These optimization include adjusting the decision threshold, tuning the maximum depth of the trees, adjusting the learning rate, and creating learning curve plot.
+At a threshold of 0.5, our model is accurate about 78.32% of the time, meaning it predicts the right class most of the time. When it predicts a positive outcome, it's correct about 77% of the time. However, it misses a lot of actual positive cases, as shown by the low recall of 0.059%. Although we prioritize accuracy and precision to minimize false alarms and ensure correctness in our predictions, the model's ability to capture all positive cases is limited.
+
+We also tried a different threshold at 0.4, the accuracy of this model is approximately 78.08%, which is slightly lower than the previous model. The precision is also lower at 45.99%. The recall is slightly higher, however, remains low at 6.11%, indicating that the model still misses a significant number of actual positive instances. Overall, this model does not improved accuracy nor precision, similar limitations in capturing all positive cases compared to the previous one. Furthermore, when we set the threshold at 0.6, the model did not predict any instances as belonging to defaulting class. Despite adjusting the threshold, the challenge of capturing all positive cases persists.
+
 
 ### Training and Validation Split
+
 ```{r}
 #training and Validation split
 set.seed(4566)
-n <- dim(filteredData)[1]
-trainValInd <- sample(1:n, size = round(0.8 * n))
-testIndices <- setdiff(1:n, trainValInd)
+n <- dim(train.data)[1]
+train2_indices <- sample(1:n, size = round(0.8 * n))  # 80% for training
+val_indices <- setdiff(1:n, train2_indices)  # Remaining 20% for testing
 
-# Split the train_val_indices into training and validation sets
-trainIndices <- sample(trainValInd, size = round(0.8 * length(trainValInd)))  # 80% - Training
-valIndices <- setdiff(trainValInd, trainIndices)  # 20% - validation
+train2.data <- (train.data[train2_indices, 1:16])
+val.data <- (train.data[val_indices, 1:16])
 
-train2.data <- (filteredData[trainIndices, 1:16])
-val.data <- (filteredData[valIndices, 1:16])
-
-train2.labels <- as.numeric(filteredData$LOAN_DEFAULT[trainIndices])
-val.labels <- as.numeric(filteredData$LOAN_DEFAULT[valIndices])
+train2.labels <- as.numeric(train.data$LOAN_DEFAULT[train2_indices])
+val.labels <- as.numeric(train.data$LOAN_DEFAULT[val_indices])
 ```
 
 ### Build Classifier and Verification
-```{r}
-train2.data <- as.matrix(train.data[ , 1:15])
-val.data <- as.matrix(val.data[ , 1:15])
 
-xgb.loan3 <- xgboost(
-  data = train2.data, label = train.labels,
+```{r}
+#Create matrix
+train2.matrix <- as.matrix(train2.data[ , 1:15])
+val.matrix <- as.matrix(val.data[ , 1:15])
+
+#Fit model
+xgb.loan2 <- xgboost(
+  data = train2.matrix, label = train.labels,
   max.depth = 6, eta = 0.01, nrounds = 100, #left this as eta = 0.01 from the last time.
   objective = "binary:logistic", eval_metric = "logloss",
   verbose = 0
 )
 
-trainPredict2 <- predict(xgb.loan3, train2.data)
+trainPredict2 <- predict(xgb.loan2, train2.matrix)
 trainPredictClass2 <- ifelse(trainPredict2 > 0.5, 1, 0)
 
-trainAccuracy2 <- mean(trainPredictClass2 == train2.labels)
-cat("Training Accuracy on new classifier: ", trainAccuracy2)
+# Misclassification errors in the training data
+train_conf_matrix2 <- table(train.data$LOAN_DEFAULT[train2_indices], trainPredictClass2)
+
+#Accuracy
+train_accuracy2 <- (train_conf_matrix2[1,1] + train_conf_matrix2[2,2]) / sum(train_conf_matrix2)
+precision2 <- train_conf_matrix2[2, 2] / sum(train_conf_matrix2[, 2])
+recall2 <- train_conf_matrix2[2, 2] / sum(train_conf_matrix2[2, ])
+
+cat("Training Accuracy:", train_accuracy2, "\n")
+cat("Training Precision:", precision2, "\n")
+cat("Training Recall:", recall2, "\n")
+
+# Predictions on validation data
+valPredict <- predict(xgb.loan2, val.matrix)
+valPredictClass <- ifelse(valPredict > 0.5, 1, 0)
+
+# Confusion matrix for validation data
+val_conf_matrix <- table(val.labels, valPredictClass)
+
+# Accuracy, Precision, and Recall for validation data
+val_accuracy <- sum(diag(val_conf_matrix)) / sum(val_conf_matrix)
+val_precision <- val_conf_matrix[2, 2] / sum(val_conf_matrix[, 2])
+val_recall <- val_conf_matrix[2, 2] / sum(val_conf_matrix[2, ])
+
+# Print metrics for validation data
+cat("Validation Accuracy:", val_accuracy, "\n")
+cat("Validation Precision:", val_precision, "\n")
+cat("Validation Recall:", val_recall, "\n")
+
+#Try another threashold
+valPredictClass <- ifelse(valPredict > 0.4, 1, 0)
+
+# Confusion matrix for validation data
+val_conf_matrix_1 <- table(val.labels, valPredictClass)
+
+# Accuracy, Precision, and Recall for validation data
+val_accuracy_1 <- sum(diag(val_conf_matrix_1)) / sum(val_conf_matrix_1)
+val_precision_1 <- val_conf_matrix_1[2, 2] / sum(val_conf_matrix_1[, 2])
+val_recall_1 <- val_conf_matrix_1[2, 2] / sum(val_conf_matrix_1[2, ])
+
+# Print metrics for validation data
+cat("Validation Accuracy:", val_accuracy_1, "\n")
+cat("Validation Precision:", val_precision_1, "\n")
+cat("Validation Recall:", val_recall_1, "\n")
 ```
 
+Both the training and validation accuracies are around 78%, suggesting the model maintains consistent overall prediction accuracy on both seen and unseen data. However, their precision and recall metrics do not match those of the initial XGBoost training model. This training iteration does not exhibit any improvement compared to the initial model.
 
 ## Appendix
 
