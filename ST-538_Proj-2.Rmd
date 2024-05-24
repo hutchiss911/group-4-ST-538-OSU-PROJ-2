@@ -226,6 +226,29 @@ ggplot(importance_data, aes(x = reorder(Feature, Importance), y = Importance)) +
   coord_flip()
 ```
 
+```{r}
+#Extract log loss vector from Cross validation result
+log_loss <- cvResults$evaluation_log$train_logloss_mean
+
+#Create a data frame with log loss and number of features
+logLossData <- data.frame(
+  NumFeatures = seq_along(log_loss),
+  LogLoss = log_loss)
+
+#Plot log loss by number of features
+ggplot(logLossData, aes(x = NumFeatures, y = LogLoss)) +
+  geom_line() +
+  geom_point() +
+  xlab("Number of Features") +
+  ylab("Log Loss") +
+  ggtitle("Log Loss by Number of Features") +
+  theme_bw()
+
+#It appears that the optimal model should include 15 variables  
+best_variables <- feature_importance$Feature[1:15]
+best_variables
+```
+
  According to the feature importance scores and our graph, we found the following features to be the most important:
 
 * LTV                   
