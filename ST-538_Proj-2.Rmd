@@ -113,19 +113,19 @@ In the case of this dataset, we need to find the features that have the biggest 
 
 First, we want to check the correlations between different variables.
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='show', fig.width=5, fig.height=4, fig.align='center'}
-colnames(tempTrain)
 
+
+```{r}
 # Convert all columns to numeric
 tempTrain[] <- lapply(tempTrain, as.numeric)
-
-# Check the structure of the 'train' dataset to verify numeric conversion
-str(tempTrain)
 
 # Check for NaN or infinite values in the correlation matrix and replace with 0
 correlation_matrix <- cor(tempTrain)
 correlation_matrix <- as.matrix(correlation_matrix)
 correlation_matrix[is.nan(correlation_matrix) | is.infinite(correlation_matrix)] <- 0
+
+# Define the plot margins to accommodate all text labels
+par(mar = c(5, 5, 4, 2) + 0.1)
 
 # Plot correlation matrix directly without clustering with variable labels
 image(1:nrow(correlation_matrix), 1:ncol(correlation_matrix), correlation_matrix,
@@ -138,7 +138,28 @@ image(1:nrow(correlation_matrix), 1:ncol(correlation_matrix), correlation_matrix
 # Add labels to the axes with smaller font size and remove numbers
 axis(1, at = 1:ncol(correlation_matrix), labels = colnames(correlation_matrix), las = 2, cex.axis = 0.5, tck = 0)
 axis(2, at = 1:nrow(correlation_matrix), labels = rownames(correlation_matrix), las = 2, cex.axis = 0.5, tck = 0)
+
+# Add correlation values as text for highly correlated pairs
+for(i in 1:nrow(correlation_matrix)) {
+  for(j in 1:ncol(correlation_matrix)) {
+    if (!is.na(correlation_matrix[i, j]) && i != j && abs(correlation_matrix[i, j]) > 0.6) {
+      text(j, i, labels = round(correlation_matrix[i, j], 2), cex = 0.5)
+    }
+  }
+}
+
+
 ```
+
+
+From the correlation matrix, we observe that darker shades of red signify robust 
+positive correlations, while deeper shades of blue denote strong negative correlations. 
+The size and intensity of the squares within the heatmap correspond to the 
+magnitude of the correlation coefficients between variables. Notably, variables 
+such as PRI.DISBURSED.AMOUNT, LTV, SEC.NO.OF.ACCTS, SEC.ACTIVE.ACCTS, 
+PRI.CURRENT.BALANCE, and AVERAGE.ACCT.AGE exhibit notable correlations with other 
+independent variables. However, to derive conclusive insights, further in-depth 
+analysis and interpretation are warranted.
 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
