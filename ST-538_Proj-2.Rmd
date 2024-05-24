@@ -220,7 +220,7 @@ xgb.plot.importance(importanceMatrix)
 importance_data <- importanceMatrix[order(importanceMatrix$Importance, decreasing = TRUE), ]
 
 importance_data <- importance_data %>% 
-  slice_head(n = 10)
+  slice_head(n = 15)
 
 # Create the bar plot
 ggplot(importance_data, aes(x = reorder(Feature, Importance), y = Importance)) +
@@ -261,23 +261,33 @@ topFeatures <- importanceMatrix$Feature[1:15]
 
 * LTV
 
-* CURRENT_PINCODE_ID
+* CURRENT_PINCODE_ID 
 
-* PERFORM_CNS_SCORE
-
-* CTV
+* PERFORM_CNS_SCORE 
 
 * DISBURSED_AMOUNT
 
-* STATE_ID
+* STATE_ID 
 
-* SUPPLIER_ID
+* SUPPLIER_ID 
+
+* AGE 
 
 * PRI_SANCTIONED_AMOUNT
 
-* AGE
+* BRANCH_ID 
 
-* EMPLOYEE_CODE_ID
+* EMPLOYEE_CODE_ID 
+
+* CREDIT_HISTORY_LENGTH 
+
+* ASSET_COST NO_OF_INQUIRIES
+
+* NO_OF_INQUIRIES
+
+* MANUFACTURER_ID 
+
+* PRIMARY_INSTAL_AMT
 
 
 ```{r}
@@ -285,7 +295,7 @@ topFeatures <- importanceMatrix$Feature[1:15]
 filteredData <- train[, c(topFeatures, "LOAN_DEFAULT")]
 
 # Training/Testing split
-set.seed(1)
+set.seed(123)
 n <- dim(filteredData)[1]
 train_indices <- sample(1:n, size = round(0.8 * n))  # 80% for training
 test_indices <- setdiff(1:n, train_indices)  # Remaining 20% for testing
@@ -387,19 +397,22 @@ cat("Best logLoss: ", bestLL, "\n")
 # XGBoost Classifier
 xgb.loan = xgboost(data = train.data, label = train.labels, 
                   max.depth = 6, eta = 0.01, nrounds = 100,
-                  objective = "binary:logistic", eval_metric = "logloss")
+                  objective = "binary:logistic", eval_metric = "logloss",
+                  verbose = 0)
 
 # Early Stopping using cross-validation
 xgb.loan.cv = xgb.cv(data = train.data, label = train.labels, 
                     max.depth = 6, eta = 0.01, nrounds = 100,
                     nfold = 5, early_stopping_rounds = 5,
-                    objective = "binary:logistic", eval_metric = "logloss")
+                    objective = "binary:logistic", eval_metric = "logloss",
+                    verbose = 0)
 
 sel_rounds = xgb.loan.cv$best_iteration
 
 xgb.loan2 = xgboost(data = train.data, label = train.labels, 
                   max.depth = 6, eta = 1, nrounds = sel_rounds,
-                  objective = "binary:logistic", eval_metric = "logloss")
+                  objective = "binary:logistic", eval_metric = "logloss",
+                  verbose = 0)
 
 # Fitted response labels
 pred1 = predict(xgb.loan, train.data)
@@ -434,6 +447,44 @@ recall2
 ```
 
 Predictions were made on the training data with a threshold of 0.5. The accuracy of both models on the training data was calculated, resulting in 80.76% and 78.25%, respectively. The first model appears to have a better balance between precision of 69.5% and recall of 21.24%. However, a recall of 21.24% is relatively low. The next steps should include exploring further optimization to improve the model's performance. These optimization include adjusting the decision threshold, tuning the maximum depth of the trees, adjusting the learning rate, and creating learning curve plot.
+
+### Training and Validation Split
+```{r}
+#training and Validation split
+set.seed(4566)
+n <- dim(filteredData)[1]
+trainValInd <- sample(1:n, size = round(0.8 * n))
+testIndices <- setdiff(1:n, trainValInd)
+
+# Split the train_val_indices into training and validation sets
+trainIndices <- sample(trainValInd, size = round(0.8 * length(trainValInd)))  # 80% - Training
+valIndices <- setdiff(trainValInd, trainIndices)  # 20% - validation
+
+train2.data <- (filteredData[trainIndices, 1:16])
+val.data <- (filteredData[valIndices, 1:16])
+
+train2.labels <- as.numeric(filteredData$LOAN_DEFAULT[trainIndices])
+val.labels <- as.numeric(filteredData$LOAN_DEFAULT[valIndices])
+```
+
+### Build Classifier and Verification
+```{r}
+train2.data <- as.matrix(train.data[ , 1:15])
+val.data <- as.matrix(val.data[ , 1:15])
+
+xgb.loan3 <- xgboost(
+  data = train2.data, label = train.labels,
+  max.depth = 6, eta = 0.01, nrounds = 100, #left this as eta = 0.01 from the last time.
+  objective = "binary:logistic", eval_metric = "logloss",
+  verbose = 0
+)
+
+trainPredict2 <- predict(xgb.loan3, train2.data)
+trainPredictClass2 <- ifelse(trainPredict2 > 0.5, 1, 0)
+
+trainAccuracy2 <- mean(trainPredictClass2 == train2.labels)
+cat("Training Accuracy on new classifier: ", trainAccuracy2)
+```
 
 
 ## Appendix
