@@ -36,9 +36,6 @@ if (!require(DiagrammeR)) {
 }
 
 ```
-```{r}
-#install.packages("htmltools")
-```
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
 #Load libraries
@@ -319,11 +316,11 @@ print(paste("Recall:", recall))
 
 
 ```
-```{r}
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
 accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
 print(paste("Accuracy:", accuracy))
 ```
-
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='show'}
 #Matrix for explanatory variable
@@ -438,8 +435,7 @@ At a threshold of 0.5, our model is accurate about 78.32% of the time, meaning i
 
 We also tried a different threshold at 0.4, the accuracy of this model is approximately 78.08%, which is slightly lower than the previous model. The precision is also lower at 45.99%. The recall is slightly higher, however, remains low at 6.11%, indicating that the model still misses a significant number of actual positive instances. Overall, this model does not improved accuracy nor precision, similar limitations in capturing all positive cases compared to the previous one. Furthermore, when we set the threshold at 0.6, the model did not predict any instances as belonging to defaulting class.
 
-
-### Training and Validation Split
+## Training and Validation Split
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
 #training and Validation split
@@ -454,8 +450,6 @@ val.data <- (train.data[val_indices, 1:16])
 train2.labels <- as.numeric(train.data$LOAN_DEFAULT[train2_indices])
 val.labels <- as.numeric(train.data$LOAN_DEFAULT[val_indices])
 ```
-
-### Build Classifier and Verification
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
 #Create matrix
