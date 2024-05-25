@@ -31,10 +31,13 @@ if (!require(caret)) {
 if (!require(xgboost)) {
   install.packages("xgboost")
 }
-#if (!require(DiagrammeR)) {
-  #install.packages("htmltools")
-#}
-knitr::opts_chunk$set(echo=F, error=T, collapse=T, warning=F, results='hide', message=F)
+if (!require(DiagrammeR)) {
+  install.packages("htmltools")
+}
+
+```
+```{r}
+#install.packages("htmltools")
 ```
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
@@ -45,7 +48,7 @@ library(dplyr)
 library(ggplot2)
 library(caret)
 library(xgboost)
-#library(DiagrammeR)
+library(DiagrammeR)
 ```
 
 ## Introduction to dataset
@@ -148,9 +151,9 @@ for(i in 1:nrow(correlation_matrix)) {
     }
   }
 }
-
-
 ```
+
+
 
 
 From the correlation matrix, we observe that darker shades of red signify robust positive correlations, while deeper shades of blue denote strong negative correlations.
@@ -266,7 +269,7 @@ test.labels <- as.numeric(filteredData$LOAN_DEFAULT[test_indices])
 
 ## Building classifiers and results
 
-The dataset, containing 15 explanatory variables as identified and 1 response variable, was divided into training and testing sets, with an 80-20 split. A logistic regression model was then trained on the training data. The confusion matrix was created and accuracy was calculated. The logistic regression model on the training data correctly predicted the outcome approximately 78.26% of the time when using a threshold of 0.5. However, with only 37.88% in precision and 0.34% in recall, further improvement is needed for model training.
+The dataset, containing 15 explanatory variables as identified and 1 response variable, was divided into training and testing sets, with an 80-20 split. A logistic regression model was then trained on the training data. The confusion matrix was created and accuracy was calculated. The logistic regression model on the training data correctly predicted the outcome approximately 75.02% of the time when using a threshold of 0.3, However, with only 33.96% in precision and 16.1% in recall, further improvement is needed for model training.
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
 #Verify for accuracy
@@ -281,26 +284,45 @@ logistic_model <- glm(LOAN_DEFAULT ~ ., data = train.data, family = binomial)
 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
-# Predictions on train data
-y_pred_train <- predict(logistic_model, newdata = train.data, type = "response")
-y_pred_class_train <- ifelse(y_pred_train > 0.5, 1, 0)
 
-# Model evaluation on train data
-train_accuracy <- mean(y_pred_class_train == train.labels)
-train_confusion_matrix <- table(train.labels, y_pred_class_train, dnn = c("Actual", "Predicted"))
+y_prob <- predict(logistic_model, newdata = train.data, type = "response")
 
-# Print accuracy and confusion matrix for train data
 
-train_confusion_matrix
-precision <- train_confusion_matrix[2, 2] / sum(train_confusion_matrix[, 2])
-recall <- train_confusion_matrix[2, 2] / sum(train_confusion_matrix[2, ])
+calculate_metrics <- function(threshold) {
+  y_pred_class <- ifelse(y_prob > threshold, 1, 0)
+  confusion_matrix <- table(train.labels, y_pred_class, dnn = c("Actual", "Predicted"))
+  precision <- confusion_matrix[2, 2] / sum(confusion_matrix[, 2])
+  recall <- confusion_matrix[2, 2] / sum(confusion_matrix[2, ])
+  f1_score <- 2 * (precision * recall) / (precision + recall)
+  return(list(precision = precision, recall = recall, f1_score = f1_score))
+}
 
-# Print adjusted accuracy, precision, and recall for train data
-print(paste("Train Accuracy:", train_accuracy))
+thresholds <- seq(0.3, 0.9, by = 0.01)
+
+metrics <- lapply(thresholds, function(threshold) calculate_metrics(threshold))
+
+# Find the threshold that maximizes F1 score
+f1_scores <- sapply(metrics, function(metric) metric$f1_score)
+optimal_threshold <- thresholds[which.max(f1_scores)]
+
+y_pred_class <- ifelse(y_prob > optimal_threshold, 1, 0)
+confusion_matrix <- table(train.labels, y_pred_class, dnn = c("Actual", "Predicted"))
+
+precision <- confusion_matrix[2, 2] / sum(confusion_matrix[, 2])
+recall <- confusion_matrix[2, 2] / sum(confusion_matrix[2, ])
+
+
+print(paste("Optimal Threshold:", optimal_threshold))
 print(paste("Precision:", precision))
 print(paste("Recall:", recall))
-```
 
+
+
+```
+```{r}
+accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
+print(paste("Accuracy:", accuracy))
+```
 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='show'}
@@ -349,6 +371,7 @@ ggplot(eta, aes(x = eta, y = LogLoss)) +
 To ensures that the model's learning rate is finely tuned to achieve the best possible performance in terms of minimizing log loss, a sequence of a learning rate eta values from 1 to 0.01 was tested. An XGBoost model was trained for each eta value using 100 boosting rounds and a maximum depth of 6. The log loss for each model was recorded. The eta value that resulted in the lowest log loss is 0.01.
 
 Subsequently, two XGBoost models were trained. The initial model used a maximum depth of 6, an eta of 0.01, and 100 boosting rounds, with the binary:logistic objective and logloss evaluation metric. Cross-validation with early stopping (5 rounds) was employed to determine the optimal number of boosting rounds. The cross-validation with early stopping approach confirmed that using 100 boosting rounds is appropriate for the initial model configuration.
+
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
 # XGBoost Classifier
