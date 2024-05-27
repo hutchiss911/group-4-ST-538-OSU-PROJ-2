@@ -150,9 +150,6 @@ for(i in 1:nrow(correlation_matrix)) {
 }
 ```
 
-
-
-
 From the correlation matrix, we observe that darker shades of red signify robust positive correlations, while deeper shades of blue denote strong negative correlations.
 
 The size and intensity of the squares within the heatmap correspond to the magnitude of the correlation coefficients between variables. Notably, variables such as PRI.DISBURSED.AMOUNT, LTV, SEC.NO.OF.ACCTS, SEC.ACTIVE.ACCTS, PRI.CURRENT.BALANCE, and AVERAGE.ACCT.AGE exhibit notable correlations with other independent variables. However, to derive conclusive insights, further in-depth analysis and interpretation are warranted.
@@ -312,9 +309,6 @@ recall <- confusion_matrix[2, 2] / sum(confusion_matrix[2, ])
 print(paste("Optimal Threshold:", optimal_threshold))
 print(paste("Precision:", precision))
 print(paste("Recall:", recall))
-
-
-
 ```
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
@@ -433,7 +427,7 @@ train_conf_matrix_2
 
 At a threshold of 0.5, our model is accurate about 78.32% of the time, meaning it predicts the right class most of the time. When it predicts a positive outcome, it's correct about 77% of the time. However, it misses a lot of actual positive cases, as shown by the low recall of 0.059%. Although we prioritize accuracy and precision to minimize false alarms and ensure correctness in our predictions, the model's ability to capture all positive cases is limited.
 
-We also tried a different threshold at 0.4, the accuracy of this model is approximately 78.08%, which is slightly lower than the previous model. The precision is also lower at 45.99%. The recall is slightly higher, however, remains low at 6.11%, indicating that the model still misses a significant number of actual positive instances. Overall, this model does not improved accuracy nor precision, similar limitations in capturing all positive cases compared to the previous one. Furthermore, when we set the threshold at 0.6, the model did not predict any instances as belonging to defaulting class.
+We also tried a different threshold at 0.4, the accuracy of this model is approximately 78.08%, which is slightly lower than the previous model. The precision is also lower at 45.99%. The recall is slightly higher, however, remains low at 6.11%, indicating that the model still misses a significant number of actual positive instances. Overall, this model does not improve accuracy nor precision, similar limitations in capturing all positive cases compared to the previous one. Furthermore, when we set the threshold at 0.6, the model did not predict any instances as belonging to defaulting class.
 
 ## Training and Validation Split
 
@@ -496,7 +490,7 @@ cat("Validation Accuracy:", val_accuracy, "\n")
 cat("Validation Precision:", val_precision, "\n")
 cat("Validation Recall:", val_recall, "\n")
 
-#Try another threashold
+#Try another threshold
 valPredictClass <- ifelse(valPredict > 0.4, 1, 0)
 
 # Confusion matrix for validation data
@@ -512,14 +506,14 @@ cat("Validation Accuracy:", val_accuracy_1, "\n")
 cat("Validation Precision:", val_precision_1, "\n")
 cat("Validation Recall:", val_recall_1, "\n")
 
-#Try another threashold
+#Try another threshold
 valPredictClass <- ifelse(valPredict > 0.6, 1, 0)
 
 # Confusion matrix for validation data
 val_conf_matrix_2 <- table(val.labels, valPredictClass)
 val_conf_matrix_2
 ```
-The training data that was split from original data is then divided into two subsets: 80% for training and 20% for validation. The second set of training data is trained using the XGBoost method with the same parameters as the initial XGBoost model. The model's performance is then evaluated on both the training and validation datasets.
+The training data that was split from the original data is then divided into two subsets: 80% for training and 20% for validation. The second set of training data is trained using the XGBoost method with the same parameters as the initial XGBoost model. The model's performance is then evaluated on both the training and validation datasets.
 
 The accuracy for the training dataset is 78.36%, with a precision of 78.57%. However, the recall remains consistently low, similar to the initial model. When tested on the validation dataset, the model maintains consistent overall prediction accuracy on both seen and unseen data, with an accuracy of 78.13% and a precision of 81.82%. The recall rate remains low at 0.22%.
 
