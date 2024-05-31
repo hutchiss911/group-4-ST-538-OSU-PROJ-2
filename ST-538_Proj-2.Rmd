@@ -13,6 +13,7 @@ geometry: margin=0.7in
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
 ##An if statement for checking if a package is installed 
+knitr::opts_chunk$set(fig.width = 6, fig.height = 4, size = "small", family = "serif", face = "bold")
 
 if (!require(tidycensus)) {
   install.packages("tidycensus")
@@ -52,7 +53,7 @@ library(DiagrammeR)
 library(pROC)
 ```
 
-## Introduction to dataset
+## Introduction/Questions To Answer
 
 In our pursuit of statistical inquiry, we have chosen to explore the Vehicle Loan Default dataset, comprising approximately 41 columns, with one designated as the response variable. Encompassing diverse information, the dataset delves into loan details, including date of birth, employment type, and credit score, alongside loan-related specifics such as disbursal details and loan-to-value ratios. The dataset presents challenges, notably in the form of odd date and time length columns, requiring standardization and transformation into comprehensible formats conducive to model development.
 
@@ -71,8 +72,6 @@ train$AGE <- as.integer(floor(train$AGE / 365.25))
 train <- train %>% select(-"DATE_OF_BIRTH", -"PERFORM_CNS_SCORE_DESCRIPTION")
 ```
 
-
-
 ```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
 #We then scrub the unknown values in our length and age fields:
 # Calculate strange data fields
@@ -81,8 +80,6 @@ train$acctmo <- as.numeric(gsub(".*yrs|mon", "", train$AVERAGE_ACCT_AGE))
 train$crdtyr <- as.numeric(gsub("yrs.*", "", train$CREDIT_HISTORY_LENGTH))
 train$crdtmo <- as.numeric(gsub(".*yrs|mon", "", train$CREDIT_HISTORY_LENGTH))
 ```
-
-
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
 #Then we do our calculations and create various other fields for our modeling usage:
@@ -111,14 +108,11 @@ tempTrain <- train
 tempTrain$LOAN_DEFAULT <- as.factor(train$LOAN_DEFAULT)
 ```
 
-
-## Feature extraction and description
+## Feature Extraction And Description
 
 In the case of this dataset, we need to find the features that have the biggest impact on our "LOAN_DEFAULT" variable. 
 
 First, we want to check the correlations between different variables.
-
-
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='show'}
 # Convert all columns to numeric
@@ -205,7 +199,6 @@ importanceMatrix <- xgb.importance(model = xgbModel)
 xgb.plot.importance(importanceMatrix)
 ```
 
-
 ```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='show'}
 # Sort the data by importance in descending order
 importance_data <- importanceMatrix[order(importanceMatrix$Importance, decreasing = TRUE), ]
@@ -215,7 +208,8 @@ ggplot(importance_data, aes(x = reorder(Feature, Importance), y = Importance)) +
   geom_bar(stat = "identity", fill = "skyblue") +
   labs(title = "Feature Importance") +
   theme_classic() +
-  theme(axis.text.y = element_text(size = 8), axis.title.x=element_blank(), axis.title.y=element_blank()) +  
+  theme(axis.text.y = element_text(size = 8), axis.title.x=element_blank(), axis.title.y=element_blank(),
+        plot.title = element_text(face = "bold")) +  
   coord_flip()
 ```
 
@@ -237,7 +231,9 @@ ggplot(logLossData, aes(x = NumFeatures, y = LogLoss)) +
   xlab("Number of Features") +
   ylab("Log Loss") +
   ggtitle("Log Loss by Number of Features") +
-  theme_bw()
+  theme_bw() +
+  theme(axis.title.x=element_blank(), axis.title.y=element_blank(),
+        plot.title = element_text(face = "bold"))
 
 #It appears that the optimal model should include 15 variables  
 #Vector for 15 top features
@@ -264,8 +260,7 @@ train.labels <- as.numeric(filteredData$LOAN_DEFAULT[train_indices])
 test.labels <- as.numeric(filteredData$LOAN_DEFAULT[test_indices])
 ```
 
-
-## Predictive model fitting
+## Predictive Model Fitting
 
 The dataset, containing 15 explanatory variables as identified and 1 response variable, was divided into training and testing sets, with an 80-20 split. A logistic regression model was then trained on the training data. The confusion matrix was created and accuracy was calculated. The logistic regression model on the training data correctly predicted the outcome approximately 75.02% of the time when using a threshold of 0.3, However, with only 33.96% in precision and 16.1% in recall, further improvement is needed for model training.
 
@@ -274,12 +269,10 @@ The dataset, containing 15 explanatory variables as identified and 1 response va
 head(train.data)
 ```
 
-
 ```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
 #Fit the Logistic regression on train data
 logistic_model <- glm(LOAN_DEFAULT ~ ., data = train.data, family = binomial)
 ```
-
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
 
@@ -360,13 +353,14 @@ ggplot(eta, aes(x = eta, y = LogLoss)) +
   xlab("eta tester") +
   ylab("Log Loss") +
   ggtitle("Log Loss by eta values") +
-  theme_bw()
+  theme_bw() +
+    theme(axis.title.x=element_blank(), axis.title.y=element_blank(),
+        plot.title = element_text(face = "bold"))
 ```
 
 Subsequently, two XGBoost models were trained. To ensures that the model's learning rate is finely tuned to achieve the best possible performance in terms of minimizing log loss, a sequence of a learning rate eta values from 1 to 0.01 was tested. An XGBoost model was trained for each eta value using 100 boosting rounds and a maximum depth of 6. The log loss for each model was recorded. The eta value that resulted in the lowest log loss is 0.01. Therefore, we're using the eta value of 0.01 for all XGboost model fitting.
 
 The initial model used a maximum depth of 6, an eta of 0.01, and 100 boosting rounds, with the binary:logistic objective and logloss evaluation metric. Cross-validation with early stopping (5 rounds) was employed to determine the optimal number of boosting rounds. The cross-validation with early stopping approach confirmed that using 100 boosting rounds is appropriate for the initial model configuration.
-
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
 # XGBoost Classifier
@@ -392,7 +386,7 @@ pred1 = predict(xgb.loan, train.matrix)
 pred.xgb.loan = ifelse(pred1 > 0.5, 1, 0)
 
 # Plotting the first two trees in the boosted classifier
-xgb.plot.tree(model = xgb.loan, trees = 1:2)
+#xgb.plot.tree(model = xgb.loan, trees = 1:2)
 
 # Misclassification errors in the training data
 train_conf_matrix <- table(filteredData$LOAN_DEFAULT[train_indices], pred.xgb.loan)
@@ -518,15 +512,16 @@ valPredictClass <- ifelse(valPredict > 0.6, 1, 0)
 val_conf_matrix_2 <- table(val.labels, valPredictClass)
 val_conf_matrix_2
 ```
+
 The training data that was split from the original data is then divided into two subsets: 80% for training and 20% for validation. The second set of training data is trained using the XGBoost method with the same parameters as the initial XGBoost model. The model's performance is then evaluated on both the training and validation datasets.
 
 The accuracy for the training dataset is 78.36%, with a precision of 78.57%. However, the recall remains consistently low, similar to the initial model. When tested on the validation dataset, the model maintains consistent overall prediction accuracy on both seen and unseen data, with an accuracy of 78.13% and a precision of 81.82%. The recall rate remains low at 0.22%.
 
 To optimize performance, the threshold on the validation testing is adjusted to 0.4. This adjustment leads to a decrease in both accuracy and precision, resulting in values of 77.99% and 44.34%, respectively. However, recall shows a slight improvement, reaching 5.17%. Setting the threshold to 0.6 results in the model failing to predict any instances belonging to the defaulting class, similar to the behavior observed in the initial model. Despite remodeling the data and adjusting the threshold, the challenge of capturing all positive cases persists.
 
-## comparison of prediction results of the fitted models
+## Comparison of Prediction Results of the Fitted Models
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='show'}
 #Test the model on testing data from xgb.loan model
 #Predictions on test.data
 #test.matrix <- as.matrix(test.data[ , 1:15])
@@ -597,26 +592,23 @@ The initial model that was trained by the first training data was tested on a se
 
 However, upon further examination of the model performance indicator, the threshold of 0.3 has reduced the accuracy of the prediction model to 51.63%. It indicates that about 51.63% of the predictions made by the model are correct. Which suggests that the model is performing is as good as random guessing in terms of overall accuracy. 
 
+## Obstacles Encountered
 
-## Obstacle
+Initially, we allocated individual tasks to each team member and emphasized focusing on their assigned responsibilities. However, we noticed variations in the approach to problem-solving among team members. During collaboration on this project using Git, conflicts arose when pushing changes to the main branch. To ensure both obstacles were dealt with appropriately, we reached an agreement stipulating that each team member must have their changes reviewed and approved by the next person before merging them into the main branch.
 
-Initially, we allocated individual tasks to each team member and emphasized focusing on their assigned responsibilities. However, we noticed variations in the approach to problem-solving among team members. During collaboration on this project using Git, conflicts arose when pushing changes to the main branch. Subsequently, we reached an agreement stipulating that each team member must have their changes reviewed and approved by the next person before merging them into the main branch.
-
-## Conclusion and future work
+## Conclusion/Future Work
 
 The prediction XGboost method model that includes LTV, CURRENT_PINCODE_ID, PERFORM_CNS_SCORE, DISBURSED_AMOUNT, STATE_ID, ASSET_COST, SUPPLIER_ID, PRI_SANCTIONED_AMOUNT, EMPLOYEE_CODE_ID, BRANCH_ID, CREDIT_HISTORY_LENGTH, AGE, NO_OF_INQUIRIES, PRI_OVERDUE_ACCTS, and PRIMARY_INSTAL_AMT as explanatory variable provide the best overall performance compared to all other models that were tested and it applied to both seen and unseen data.
 
 We found that the threshold of 0.5 on both training and testing data, the model provide highest accuracy. The prediction model demonstrates a high level of accuracy, correctly classifying approximately 78.34% of the instances on seen data and 78.24 on unseen data. The precision of 80.58% on seen data and 66.67% on unseen data indicates that when the model predicts a loan will default, it is correct 80.58% and two third of a time. This suggests that the model is reasonably good at avoiding false positives, which can be beneficial in minimizing the rejection of creditworthy applicants.
 
-
 However, while the prediction model exhibits high accuracy and moderate precision, its extremely low recall poses significant limitations, particularly in loan default prediction applications. The model's inability to effectively identify loan defaults undermines its usefulness in risk management and decision-making processes, highlighting the need for significant improvements to achieve a better balance between precision and recall. Addressing this limitation is crucial for ensuring the model's practical utility and reliability in real-world lending scenarios.
-
-
 
 ## Appendix
 
 ```{r, echo=T, eval=F, results='hide', fig.show='hide', message=FALSE, warning=FALSE}
 ##An if statement for checking if a package is installed 
+knitr::opts_chunk$set(fig.width = 6, fig.height = 4, size = "small", family = "serif", face = "bold")
 
 if (!require(tidycensus)) {
   install.packages("tidycensus")
@@ -636,9 +628,12 @@ if (!require(caret)) {
 if (!require(xgboost)) {
   install.packages("xgboost")
 }
-#if (!require(DiagrammeR)) {
-  #install.packages("htmltools")
-#}
+if (!require(DiagrammeR)) {
+  install.packages("htmltools")
+}
+if (!require(pROC)) {
+  install.packages("pROC")
+}
 knitr::opts_chunk$set(echo=F, error=T, collapse=T, warning=F, results='hide', message=F)
 
 #Load libraries
@@ -648,7 +643,8 @@ library(dplyr)
 library(ggplot2)
 library(caret)
 library(xgboost)
-#library(DiagrammeR)
+library(DiagrammeR)
+library(pROC)
 
 #First, we'll import the dataset from the training CSV:
 # Reading in the csv
@@ -691,6 +687,7 @@ train <- train[!duplicated(train), ]
 tempTrain <- train
 tempTrain$LOAN_DEFAULT <- as.factor(train$LOAN_DEFAULT)
 
+# Feature Extraction and Description
 # Convert all columns to numeric
 tempTrain[] <- lapply(tempTrain, as.numeric)
 
@@ -722,8 +719,6 @@ for(i in 1:nrow(correlation_matrix)) {
     }
   }
 }
-
-
 
 featureMatrix <- as.matrix(train[, -which(names(train) == "LOAN_DEFAULT")])
 labelVector <- as.numeric(as.character(train$LOAN_DEFAULT))
@@ -770,8 +765,16 @@ ggplot(importance_data, aes(x = reorder(Feature, Importance), y = Importance)) +
   geom_bar(stat = "identity", fill = "skyblue") +
   labs(title = "Feature Importance") +
   theme_classic() +
-  theme(axis.text.y = element_text(size = 8), axis.title.x=element_blank(), axis.title.y=element_blank()) +  
+  theme(axis.text.y = element_text(size = 8), axis.title.x=element_blank(), axis.title.y=element_blank(),
+        plot.title = element_text(face = "bold")) +  
   coord_flip()
+
+#It appears that the optimal model should include 15 variables  
+#Vector for 15 top features
+topFeatures <- importanceMatrix$Feature[1:15]
+
+# Subset the dataset with the selected features
+filteredData <- train[, c(topFeatures, "LOAN_DEFAULT")]
 
 #Extract log loss vector from Cross validation result
 log_loss <- cvResults$evaluation_log$train_logloss_mean
@@ -788,14 +791,13 @@ ggplot(logLossData, aes(x = NumFeatures, y = LogLoss)) +
   xlab("Number of Features") +
   ylab("Log Loss") +
   ggtitle("Log Loss by Number of Features") +
-  theme_bw()
+  theme_bw() +
+  theme(axis.title.x=element_blank(), axis.title.y=element_blank(),
+      plot.title = element_text(face = "bold"))
 
 #It appears that the optimal model should include 15 variables  
 #Vector for 15 top features
 topFeatures <- importanceMatrix$Feature[1:15]
-
-# Subset the dataset with the selected features
-filteredData <- train[, c(topFeatures, "LOAN_DEFAULT")]
 
 # Training/Testing split
 set.seed(123)
@@ -815,24 +817,40 @@ head(train.data)
 #Fit the Logistic regression on train data
 logistic_model <- glm(LOAN_DEFAULT ~ ., data = train.data, family = binomial)
 
-# Predictions on train data
-y_pred_train <- predict(logistic_model, newdata = train.data, type = "response")
-y_pred_class_train <- ifelse(y_pred_train > 0.5, 1, 0)
+# Predictive Model Fitting
+y_prob <- predict(logistic_model, newdata = train.data, type = "response")
 
-# Model evaluation on train data
-train_accuracy <- mean(y_pred_class_train == train.labels)
-train_confusion_matrix <- table(train.labels, y_pred_class_train, dnn = c("Actual", "Predicted"))
 
-# Print accuracy and confusion matrix for train data
+calculate_metrics <- function(threshold) {
+  y_pred_class <- ifelse(y_prob > threshold, 1, 0)
+  confusion_matrix <- table(train.labels, y_pred_class, dnn = c("Actual", "Predicted"))
+  precision <- confusion_matrix[2, 2] / sum(confusion_matrix[, 2])
+  recall <- confusion_matrix[2, 2] / sum(confusion_matrix[2, ])
+  f1_score <- 2 * (precision * recall) / (precision + recall)
+  return(list(precision = precision, recall = recall, f1_score = f1_score))
+}
 
-train_confusion_matrix
-precision <- train_confusion_matrix[2, 2] / sum(train_confusion_matrix[, 2])
-recall <- train_confusion_matrix[2, 2] / sum(train_confusion_matrix[2, ])
+thresholds <- seq(0.3, 0.9, by = 0.01)
 
-# Print adjusted accuracy, precision, and recall for train data
-print(paste("Train Accuracy:", train_accuracy))
+metrics <- lapply(thresholds, function(threshold) calculate_metrics(threshold))
+
+# Find the threshold that maximizes F1 score
+f1_scores <- sapply(metrics, function(metric) metric$f1_score)
+optimal_threshold <- thresholds[which.max(f1_scores)]
+
+y_pred_class <- ifelse(y_prob > optimal_threshold, 1, 0)
+confusion_matrix <- table(train.labels, y_pred_class, dnn = c("Actual", "Predicted"))
+
+precision <- confusion_matrix[2, 2] / sum(confusion_matrix[, 2])
+recall <- confusion_matrix[2, 2] / sum(confusion_matrix[2, ])
+
+
+print(paste("Optimal Threshold:", optimal_threshold))
 print(paste("Precision:", precision))
 print(paste("Recall:", recall))
+
+accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
+print(paste("Accuracy:", accuracy))
 
 #Matrix for explanatory variable
 train.matrix <- as.matrix(train.data[ , 1:15])
@@ -873,7 +891,9 @@ ggplot(eta, aes(x = eta, y = LogLoss)) +
   xlab("eta tester") +
   ylab("Log Loss") +
   ggtitle("Log Loss by eta values") +
-  theme_bw()
+  theme_bw() +
+  theme(axis.title.x=element_blank(), axis.title.y=element_blank(),
+        plot.title = element_text(face = "bold"))
 
 
 # XGBoost Classifier
@@ -1013,4 +1033,68 @@ valPredictClass <- ifelse(valPredict > 0.6, 1, 0)
 # Confusion matrix for validation data
 val_conf_matrix_2 <- table(val.labels, valPredictClass)
 val_conf_matrix_2
+
+#Test the model on testing data from xgb.loan model
+#Predictions on test.data
+#test.matrix <- as.matrix(test.data[ , 1:15])
+testPredict <- predict(xgb.loan, test.matrix)
+testPredictClass <- ifelse(testPredict > 0.5, 1, 0)
+
+# Confusion matrix for validation data
+test_conf_matrix <- table(test.labels, testPredictClass)
+
+# Accuracy, Precision, and Recall for validation data
+test_accuracy <- sum(diag(test_conf_matrix)) / sum(test_conf_matrix)
+test_precision <- test_conf_matrix[2, 2] / sum(test_conf_matrix[, 2])
+test_recall <- test_conf_matrix[2, 2] / sum(test_conf_matrix[2, ])
+
+# Print metrics for validation data
+cat("Test Accuracy:", test_accuracy, "\n")
+cat("Test Precision:", test_precision, "\n")
+cat("Test Recall:", test_recall, "\n")
+
+# Compute ROC curve
+roc_obj <- roc(test.labels, testPredict)
+
+# Plot ROC curve
+plot(roc_obj, col = "darkblue", main = "ROC Curve for Loan Prediction Model", xlim = c(0, 1), ylim = c(0, 1))
+#From roc plot, it appears threshold could be between 0.3 to 0.9
+
+
+#Find Optimal threshold
+cal_metrics <- function(threshold) {
+  testPredictClass <- ifelse(testPredict > threshold, 1, 0)
+  test_conf_matrix <- table(test.labels, testPredictClass, dnn = c("Actual", "Predicted"))
+  test_precision <- test_conf_matrix[2, 2] / sum(test_conf_matrix[, 2])
+  test_recall <- test_conf_matrix[2, 2] / sum(test_conf_matrix[2, ])
+  f1_score <- 2 * (test_precision * test_recall) / (test_precision + test_recall)
+  return(list(precision = test_precision, recall = test_recall, f1_score = f1_score))
+}
+
+thresholds <- seq(0.3, 0.5, by = 0.01)
+
+metrics <- lapply(thresholds, function(threshold) cal_metrics(threshold))
+
+
+# Find the threshold that maximizes F1 score
+f1_scores <- sapply(metrics, function(metric) metric$f1_score)
+optimal_threshold <- thresholds[which.max(f1_scores)]
+
+print(paste("Optimal Threshold:", optimal_threshold))
+
+testPredictClass <- ifelse(testPredict > optimal_threshold, 1, 0)
+
+# Confusion matrix for test data
+test_conf_matrix_2 <- table(test.labels, testPredictClass)
+
+# Accuracy, Precision, and Recall for validation data
+test_accuracy_2 <- sum(diag(test_conf_matrix_2)) / sum(test_conf_matrix_2)
+test_precision_2 <- test_conf_matrix_2[2, 2] / sum(test_conf_matrix_2[, 2])
+test_recall_2 <- test_conf_matrix_2[2, 2] / sum(test_conf_matrix_2[2, ])
+
+# Print metrics for validation data
+cat("Validation Accuracy:", test_accuracy_2, "\n")
+cat("Validation Precision:", test_precision_2, "\n")
+cat("Validation Recall:", test_recall_2, "\n")
+
 ```
